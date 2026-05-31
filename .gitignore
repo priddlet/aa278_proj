@@ -1,0 +1,22 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+.DS_Store
+data/cache/
+figures/
+.mplconfig/
+*.log
+
+# NAIF SPICE kernels (download per README; de440.bsp exceeds GitHub 100 MB limit)
+*.bsp
+results/
+
+HW1/
+HW2/
+poliastro/

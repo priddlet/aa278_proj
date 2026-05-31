@@ -1,0 +1,57 @@
+[
+  {
+    "name": "B1937+21",
+    "jname": "J1939+2134",
+    "raj": "19:39:38.561297",
+    "decj": "+21:34:59.12971",
+    "f0_hz": 641.928233644,
+    "f1_hz_s": -1.0285e-14,
+    "pepoch_mjd": 54188.0,
+    "dm": 71.02,
+    "notes": "SEXTANT/NICER navigation set; ATNF PSRCAT v2.8 values"
+  },
+  {
+    "name": "B1821-24",
+    "jname": "J1824-2452A",
+    "raj": "18:24:32.0084",
+    "decj": "-24:52:11.009",
+    "f0_hz": 327.4055537025,
+    "f1_hz_s": -1.7164e-13,
+    "pepoch_mjd": 51712.0,
+    "dm": 21.57,
+    "notes": "SEXTANT/NICER navigation set"
+  },
+  {
+    "name": "J0437-4715",
+    "jname": "J0437-4715",
+    "raj": "04:37:15.81476",
+    "decj": "-47:15:08.6242",
+    "f0_hz": 173.67749108556,
+    "f1_hz_s": -1.728e-14,
+    "pepoch_mjd": 51712.0,
+    "dm": 2.64476,
+    "notes": "Bright nearby MSP; SEXTANT demo"
+  },
+  {
+    "name": "J0218+4232",
+    "jname": "J0218+4232",
+    "raj": "02:18:06.3117",
+    "decj": "+42:32:22.36",
+    "f0_hz": 430.46096013,
+    "f1_hz_s": -1.4e-14,
+    "pepoch_mjd": 51712.0,
+    "dm": 30.25,
+    "notes": "SEXTANT navigation set"
+  },
+  {
+    "name": "J0030+0451",
+    "jname": "J0030+0451",
+    "raj": "00:30:27.428",
+    "decj": "+04:51:39.71",
+    "f0_hz": 205.530475224,
+    "f1_hz_s": -3.3e-15,
+    "pepoch_mjd": 51712.0,
+    "dm": 4.333,
+    "notes": "SEXTANT navigation set"
+  }
+]

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pulsar-nav"
+version = "0.1.0"
+description = "Pulsar-only XNAV navigation framework for AA278 lunar far-side project"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "requests>=2.28",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+spice = ["spiceypy>=6.0"]
+viz = ["matplotlib>=3.7"]
+export = ["openpyxl>=3.1"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
