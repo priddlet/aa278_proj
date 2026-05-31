@@ -10,7 +10,7 @@ from pulsar_nav.simulation.monte_carlo import (
     run_monte_carlo,
     select_pulsars,
 )
-from pulsar_nav.simulation.policy import NavPolicy
+from pulsar_nav.simulation.policy import NavPolicy, PolicySegment, active_segment
 from pulsar_nav.spice.kernels import resolve_kernel_dir
 
 spiceypy = pytest.importorskip("spiceypy")
@@ -77,6 +77,35 @@ def test_aggregate_policy_stats():
     assert stats.meets_lunanet_p95 is False
 
 
+def test_active_segment_switching():
+    from pulsar_nav.visibility.blackout import NavMode, VisibilitySample
+
+    blk = VisibilitySample(
+        t_s=0.0,
+        earth_elevation_deg=-10.0,
+        gnss_visible=False,
+        lonet_visible=False,
+        n_lonet_visible=0,
+        max_lonet_elevation_deg=0.0,
+        nav_mode=NavMode.XNAV,
+        in_blackout=True,
+    )
+    vis = VisibilitySample(
+        t_s=1.0,
+        earth_elevation_deg=20.0,
+        gnss_visible=True,
+        lonet_visible=True,
+        n_lonet_visible=2,
+        max_lonet_elevation_deg=30.0,
+        nav_mode=NavMode.HYBRID,
+        in_blackout=False,
+    )
+    assert active_segment(NavPolicy.XNAV_ONLY, blk) == PolicySegment.XNAV_ONLY_ARC
+    assert active_segment(NavPolicy.GNSS_ONLY, blk) == PolicySegment.XNAV_BLACKOUT
+    assert active_segment(NavPolicy.GNSS_ONLY, vis) == PolicySegment.GNSS_VISIBLE
+    assert active_segment(NavPolicy.HYBRID, vis) == PolicySegment.HYBRID_VISIBLE
+
+
 @pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")
 def test_monte_carlo_runs_all_policies(spice_loaded):
     cfg = MonteCarloConfig(
@@ -86,9 +115,12 @@ def test_monte_carlo_runs_all_policies(spice_loaded):
         step_s=300.0,
         randomize_offset=False,
         position_offset_m=40_000.0,
-        policies=(NavPolicy.HYBRID, NavPolicy.XNAV_ONLY, NavPolicy.GNSS_ONLY),
+        policies=(
+            NavPolicy.XNAV_ONLY,
+            NavPolicy.GNSS_ONLY,
+            NavPolicy.HYBRID,
+        ),
     )
-    # Reuse short arc — run_monte_carlo propagates internally; just check structure
     result = run_monte_carlo(cfg)
     assert len(result.trials) == 2 * 3
     assert NavPolicy.HYBRID in result.by_policy
@@ -99,7 +131,6 @@ def test_monte_carlo_runs_all_policies(spice_loaded):
 
 @pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")
 def test_hybrid_with_broadcast_gps_campaign(spice_loaded):
-    """Hybrid MC with sidelobe GNSS completes; sparse PRNs may not beat XNAV-only finals."""
     cfg = MonteCarloConfig(
         n_trials=2,
         seed=11,
@@ -118,8 +149,39 @@ def test_hybrid_with_broadcast_gps_campaign(spice_loaded):
 
 
 @pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")
+def test_gnss_only_uses_pulsars_in_blackout(spice_loaded):
+    from pulsar_nav.propagation.dynamics import DynamicsConfig
+    from pulsar_nav.propagation.propagator import LunarPropagator
+    from pulsar_nav.simulation.presentation_runs import run_representative_policy_runs
+    from pulsar_nav.spice.ephemeris import str_to_et
+    from pulsar_nav.visibility.blackout import compute_visibility_timeline
+
+    cfg = MonteCarloConfig(
+        n_trials=1,
+        seed=3,
+        preset="elfo_nav",
+        duration_s=26.0 * 3600.0,
+        step_s=180.0,
+        randomize_offset=False,
+        position_offset_m=50_000.0,
+        policies=(NavPolicy.GNSS_ONLY, NavPolicy.GNSS_COAST),
+    )
+    et0 = str_to_et(cfg.epoch_utc)
+    prop = LunarPropagator(et0, config=DynamicsConfig(), auto_load_kernels=False)
+    traj = prop.propagate_preset(cfg.preset, duration_s=cfg.duration_s, step_s=cfg.step_s)
+    timeline = compute_visibility_timeline(traj)
+    runs, _ = run_representative_policy_runs(cfg, traj=traj, timeline=timeline)
+    gnss_switch = runs[NavPolicy.GNSS_ONLY]
+    coast = runs[NavPolicy.GNSS_COAST]
+    blk = np.array([s.in_blackout for s in timeline.samples])
+    assert np.any(blk)
+    assert float(np.mean(gnss_switch.position_error_m[blk])) < float(
+        np.mean(coast.position_error_m[blk])
+    )
+
+
+@pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")
 def test_elfo_presets_differ_in_visibility(spice_loaded):
-    """Science vs argp+180 phasing produce different GNSS geometry at the same epoch."""
     from pulsar_nav.propagation.dynamics import DynamicsConfig
     from pulsar_nav.propagation.propagator import LunarPropagator
     from pulsar_nav.spice.ephemeris import str_to_et
@@ -144,7 +206,7 @@ def test_monte_carlo_preset_comparison(spice_loaded):
         step_s=300.0,
         randomize_offset=False,
         position_offset_m=40_000.0,
-        policies=(NavPolicy.HYBRID, NavPolicy.GNSS_ONLY),
+        policies=(NavPolicy.HYBRID, NavPolicy.GNSS_COAST),
     )
     from pulsar_nav.simulation.monte_carlo import run_preset_comparison
 
@@ -187,11 +249,11 @@ def test_export_monte_carlo_xlsx(spice_loaded, tmp_path):
 
     wb = load_workbook(path)
     assert {"config", "summary", "trials"}.issubset(set(wb.sheetnames))
-    assert wb["trials"].max_row >= 5  # header + 2 trials × 2 policies
+    assert wb["trials"].max_row >= 5
 
 
 @pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")
-def test_hybrid_beats_gnss_only_in_blackout_heavy_arc(spice_loaded):
+def test_hybrid_beats_gnss_coast_in_blackout_heavy_arc(spice_loaded):
     cfg = MonteCarloConfig(
         n_trials=3,
         seed=7,
@@ -199,9 +261,9 @@ def test_hybrid_beats_gnss_only_in_blackout_heavy_arc(spice_loaded):
         duration_s=4.0 * 3600.0,
         step_s=180.0,
         randomize_offset=True,
-        policies=(NavPolicy.HYBRID, NavPolicy.GNSS_ONLY),
+        policies=(NavPolicy.HYBRID, NavPolicy.GNSS_COAST),
     )
     result = run_monte_carlo(cfg)
     h = result.by_policy[NavPolicy.HYBRID]
-    g = result.by_policy[NavPolicy.GNSS_ONLY]
+    g = result.by_policy[NavPolicy.GNSS_COAST]
     assert h.blackout_mean_m < g.blackout_mean_m

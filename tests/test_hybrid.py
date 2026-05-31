@@ -43,12 +43,15 @@ def test_hybrid_uses_gnss_during_near_side(spice_loaded):
         position_offset_m=30_000.0,
         rng=np.random.default_rng(0),
     )
-    n_gnss = sum(log.n_gnss for log in res.epoch_logs)
-    n_pulsar = sum(log.n_pulsar for log in res.epoch_logs)
-    n_epochs = len(res.epoch_logs) - 1
     n_msps = len(load_catalog())
-    assert n_gnss > 0
-    assert n_pulsar == n_epochs * n_msps
+    assert sum(log.n_gnss for log in res.epoch_logs) > 0
+    for log in res.epoch_logs[1:]:
+        if log.in_blackout:
+            assert log.n_pulsar == n_msps
+            assert log.n_gnss == 0
+        else:
+            assert log.n_gnss > 0
+            assert log.n_pulsar == 0
 
 
 @pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")

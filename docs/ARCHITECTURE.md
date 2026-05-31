@@ -160,7 +160,7 @@ P \leftarrow (I-KH)P
 - **Trackable GPS (filter):** `visible_gps_prns` / `gps_sidelobe_limb_deg`: clear far-side SC→GPS line (not Earth-occulted, GPS farther than Earth), near-limb annulus (~≤6°), cap 4 PRNs. Does not model antenna gain or C/N₀; HW2 `gnss_measurements.pkl` is the course ground truth when available.
 - **LunaNet:** Walker relays at 8000 km; default 16 sats. Lecture anchors ~40–55% GDOP < 6 for small relay sets — validate with `scripts/validate_visibility_anchors.py`.
 - **NavMode:** GNSS / HYBRID / LONET / XNAV from GNSS + LunaNet flags.
-- **NavPolicy** (`simulation/policy.py`): which sensors the filter *uses* (hybrid = XNAV always + GNSS/LunaNet when mode allows).
+- **NavPolicy** (`simulation/policy.py`): switching measurement stacks — `xnav_only` (pulsars all arc), `gnss_only` (GNSS when not in blackout, pulsars in blackout), `hybrid` (GNSS+LunaNet when not in blackout, pulsars in blackout). `NavMode` is geometry-only for plots.
 
 ---
 

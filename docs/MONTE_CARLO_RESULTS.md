@@ -1,9 +1,11 @@
 # Monte Carlo results
 
+> **Important:** Sub-km XNAV/hybrid blackout numbers are **not** flight-realistic with default settings (`use_truth_velocity_predict=True`, synthetic LOS from truth). See **[SIMULATION_LIMITATIONS.md](./SIMULATION_LIMITATIONS.md)** before citing absolute errors. Pulsar/TOA sweeps must use a **fixed seed** across sweep points (fixed in code May 2026).
+
 **Orbit:** ELFO truth (HW2 case 1, Earth-OP frame) · **Epoch:** 2026-01-15 12:00 UTC  
 **Arc:** 26.4 hr (2× orbital period, T ≈ 13.2 hr at a = 6541.4 km)  
 **GNSS:** broadcast ephemeris + corrected sidelobe gate (far-side clear LOS, limb annulus)  
-**Hybrid policy:** XNAV every epoch + GNSS (non-blackout) + LunaNet when visible  
+**Policies (switching):** `xnav_only` (pulsars all arc); `gnss_only` (GNSS if visible, pulsars in blackout); `hybrid` (GNSS+LunaNet if visible, pulsars in blackout)  
 **Noise:** TOA σ = **1 µs** (~300 m range), GNSS/LunaNet σ = 15 m, offset uniform 30–100 km
 
 Run: `python scripts/demo_monte_carlo.py --trials 20 --no-show`

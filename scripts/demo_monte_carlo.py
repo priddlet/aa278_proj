@@ -67,6 +67,11 @@ def parse_args() -> argparse.Namespace:
         help="Excel output path (default: results/monte_carlo_results.xlsx)",
     )
     p.add_argument("--no-export", action="store_true", help="Skip Excel export")
+    p.add_argument(
+        "--no-truth-velocity",
+        action="store_true",
+        help="Propagate with CV EKF model instead of truth velocity (more realistic)",
+    )
     return p.parse_args()
 
 
@@ -88,6 +93,7 @@ def main() -> None:
     result = None
     cfg = None
 
+    use_truth_vel = not args.no_truth_velocity
     if args.compare_elfo:
         cfg = MonteCarloConfig(
             n_trials=n_trials,
@@ -96,10 +102,11 @@ def main() -> None:
             step_s=args.step,
             toa_sigma_s=args.toa_us * 1e-6,
             n_pulsars=args.pulsars,
+            use_truth_velocity_predict=use_truth_vel,
             policies=(
-                NavPolicy.HYBRID,
                 NavPolicy.XNAV_ONLY,
                 NavPolicy.GNSS_ONLY,
+                NavPolicy.HYBRID,
             ),
         )
         print("Running ELFO comparison (science vs GNSS-friendly apoapsis)...")
@@ -117,10 +124,11 @@ def main() -> None:
             step_s=args.step,
             toa_sigma_s=args.toa_us * 1e-6,
             n_pulsars=args.pulsars,
+            use_truth_velocity_predict=use_truth_vel,
             policies=(
-                NavPolicy.HYBRID,
                 NavPolicy.XNAV_ONLY,
                 NavPolicy.GNSS_ONLY,
+                NavPolicy.HYBRID,
             ),
         )
 
@@ -141,6 +149,7 @@ def main() -> None:
                 duration_s=cfg.duration_s,
                 step_s=cfg.step_s,
                 toa_sigma_s=cfg.toa_sigma_s,
+                use_truth_velocity_predict=use_truth_vel,
                 policies=(NavPolicy.HYBRID, NavPolicy.XNAV_ONLY),
             ),
         )
@@ -163,6 +172,7 @@ def main() -> None:
                 duration_s=cfg.duration_s,
                 step_s=cfg.step_s,
                 n_pulsars=args.pulsars,
+                use_truth_velocity_predict=use_truth_vel,
             ),
         )
         export_bundle.toa_sweep = toa_sweep
@@ -184,11 +194,17 @@ def main() -> None:
 
     try:
         from pulsar_nav.visualization.monte_carlo_plots import (
+            apply_presentation_style,
             plot_final_error_boxplot,
+            plot_final_error_cdf,
+            plot_policy_metrics_bars,
             plot_pulsar_count_sweep,
+            plot_pulsar_sweep_comparison,
+            plot_toa_noise_sweep,
             save_figure,
         )
 
+        apply_presentation_style()
         plot_preset = args.preset if not args.compare_elfo else "elfo"
         fig = plot_final_error_boxplot(
             result,
@@ -196,11 +212,31 @@ def main() -> None:
         )
         p_main = save_figure(fig, out_dir / f"mc_{plot_preset}_boxplot.png")
         print(f"\n  saved: {p_main}")
+        save_figure(
+            plot_policy_metrics_bars(result),
+            out_dir / f"mc_{plot_preset}_policy_bars.png",
+        )
+        save_figure(
+            plot_final_error_cdf(result),
+            out_dir / f"mc_{plot_preset}_final_cdf.png",
+        )
+        print(f"  saved: mc_{plot_preset}_policy_bars.png, mc_{plot_preset}_final_cdf.png")
 
         if pulsar_sweep is not None:
             fig2 = plot_pulsar_count_sweep(pulsar_sweep, policy=NavPolicy.HYBRID)
             p2 = save_figure(fig2, out_dir / f"mc_{plot_preset}_pulsar_sweep.png")
             print(f"  saved: {p2}")
+            save_figure(
+                plot_pulsar_sweep_comparison(pulsar_sweep),
+                out_dir / f"mc_{plot_preset}_pulsar_sweep_compare.png",
+            )
+
+        if toa_sweep is not None:
+            save_figure(
+                plot_toa_noise_sweep(toa_sweep),
+                out_dir / f"mc_{plot_preset}_toa_sweep.png",
+            )
+            print(f"  saved: mc_{plot_preset}_toa_sweep.png")
 
         if not args.no_show:
             import matplotlib.pyplot as plt

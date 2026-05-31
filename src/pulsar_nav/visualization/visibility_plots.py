@@ -7,15 +7,33 @@ from pathlib import Path
 import numpy as np
 
 from pulsar_nav.propagation.propagator import PropagatedTrajectory
-from pulsar_nav.visibility.blackout import VisibilityTimeline, timeline_arrays
+from pulsar_nav.simulation.policy import (
+    SEGMENT_COLORS,
+    NavPolicy,
+    PolicySegment,
+    active_segment,
+)
+from pulsar_nav.visibility.blackout import (
+    NAV_MODE_DISPLAY,
+    NavMode,
+    VisibilityTimeline,
+    timeline_arrays,
+)
 
 MODE_COLORS = {
-    "gnss": "#22c55e",
-    "hybrid": "#3b82f6",
-    "lonet": "#a855f7",
-    "xnav": "#ef4444",
-    "none": "#6b7280",
+    NavMode.GNSS.value: "#22c55e",
+    NavMode.HYBRID.value: "#3b82f6",
+    NavMode.LONET.value: "#a855f7",
+    NavMode.XNAV.value: "#ef4444",
+    NavMode.NONE.value: "#6b7280",
 }
+
+
+def _mode_label(mode_value: str) -> str:
+    try:
+        return NAV_MODE_DISPLAY[NavMode(mode_value)]
+    except ValueError:
+        return mode_value
 
 
 def _require_matplotlib():
@@ -82,12 +100,175 @@ def plot_visibility_timeline(
         )
     _shade_blackout(ax2, t_hr, arr["in_blackout"], alpha=0.12)
     ax2.set_yticks(range(len(unique)))
-    ax2.set_yticklabels(unique)
+    ax2.set_yticklabels([_mode_label(m) for m in unique])
     ax2.set_xlabel("time since epoch (hr)")
-    ax2.set_title("Navigation mode (pitch: XNAV during blackout)")
+    ax2.set_title("Geometry: which sources are visible (not MC policy)")
     ax2.legend(loc="upper right", fontsize=8, ncol=len(unique))
     ax2.grid(True, ls=":", alpha=0.5)
 
+    fig.tight_layout()
+    return fig
+
+
+def plot_orbit_colored_by_blackout(
+    traj: PropagatedTrajectory,
+    timeline: VisibilityTimeline,
+    *,
+    title: str = "ELFO orbit — GNSS blackout segments",
+):
+    """3D MCI orbit: red = far-side blackout, blue = GNSS-visible."""
+    plt = _require_matplotlib()
+    from pulsar_nav.visualization.orbit_plots import _draw_moon_sphere, _set_equal_3d
+
+    fig = plt.figure(figsize=(9, 7))
+    ax = fig.add_subplot(111, projection="3d")
+    pos = traj.position_mci_km
+    in_blk = np.array([s.in_blackout for s in timeline.samples])
+
+    ax.plot(
+        pos[~in_blk, 0],
+        pos[~in_blk, 1],
+        pos[~in_blk, 2],
+        ".",
+        ms=3,
+        color="#22c55e",
+        label="GNSS visible",
+    )
+    ax.plot(
+        pos[in_blk, 0],
+        pos[in_blk, 1],
+        pos[in_blk, 2],
+        ".",
+        ms=3,
+        color="#ef4444",
+        label="GNSS blackout",
+    )
+    _draw_moon_sphere(ax, alpha=0.2)
+    ax.set_xlabel("x (km)")
+    ax.set_ylabel("y (km)")
+    ax.set_zlabel("z (km)")
+    ax.set_title(title)
+    ax.legend(fontsize=9)
+    _set_equal_3d(ax, pos)
+    fig.tight_layout()
+    return fig
+
+
+def plot_orbit_blackout_xy(
+    traj: PropagatedTrajectory,
+    timeline: VisibilityTimeline,
+    *,
+    title: str = "XY projection — blackout along track",
+):
+    """Moon-centered XY view with blackout-colored ground track."""
+    plt = _require_matplotlib()
+    from pulsar_nav.propagation.dynamics import MOON_RADIUS_KM
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+    pos = traj.position_mci_km
+    in_blk = np.array([s.in_blackout for s in timeline.samples])
+    theta = np.linspace(0, 2 * np.pi, 200)
+    ax.plot(
+        MOON_RADIUS_KM * np.cos(theta),
+        MOON_RADIUS_KM * np.sin(theta),
+        color="#888",
+        lw=0.8,
+        ls="--",
+        label="lunar limb",
+    )
+    ax.scatter(
+        pos[~in_blk, 0],
+        pos[~in_blk, 1],
+        c="#22c55e",
+        s=8,
+        label="GNSS visible",
+    )
+    ax.scatter(
+        pos[in_blk, 0],
+        pos[in_blk, 1],
+        c="#ef4444",
+        s=8,
+        label="GNSS blackout",
+    )
+    ax.set_aspect("equal")
+    ax.set_xlabel("x (km)")
+    ax.set_ylabel("y (km)")
+    ax.set_title(title)
+    ax.legend(loc="upper right")
+    ax.grid(True, ls=":", alpha=0.5)
+    fig.tight_layout()
+    return fig
+
+
+def plot_orbit_colored_by_policy(
+    traj: PropagatedTrajectory,
+    timeline: VisibilityTimeline,
+    policy: NavPolicy,
+    *,
+    title: str | None = None,
+):
+    """3D orbit colored by which measurements the filter uses (per ``NavPolicy``)."""
+    plt = _require_matplotlib()
+    from pulsar_nav.visualization.orbit_plots import _draw_moon_sphere, _set_equal_3d
+
+    fig = plt.figure(figsize=(9, 7))
+    ax = fig.add_subplot(111, projection="3d")
+    pos = traj.position_mci_km
+    segments = [active_segment(policy, s) for s in timeline.samples]
+
+    for seg in dict.fromkeys(segments):
+        mask = np.array([s == seg for s in segments])
+        ax.plot(
+            pos[mask, 0],
+            pos[mask, 1],
+            pos[mask, 2],
+            ".",
+            ms=4,
+            color=SEGMENT_COLORS.get(seg.value, "#333"),
+            label=seg.value,
+        )
+    _draw_moon_sphere(ax, alpha=0.2)
+    ax.set_xlabel("x (km)")
+    ax.set_ylabel("y (km)")
+    ax.set_zlabel("z (km)")
+    ax.set_title(title or f"ELFO — active measurements ({policy.value})")
+    ax.legend(fontsize=7, loc="upper left")
+    _set_equal_3d(ax, pos)
+    fig.tight_layout()
+    return fig
+
+
+def plot_policy_segment_timeline(
+    timeline: VisibilityTimeline,
+    policy: NavPolicy,
+    *,
+    title: str | None = None,
+):
+    """Which measurement segment is active vs time for one ``NavPolicy``."""
+    plt = _require_matplotlib()
+    t_hr = np.array([s.t_s for s in timeline.samples]) / 3600.0
+    segments = [active_segment(policy, s) for s in timeline.samples]
+
+    fig, ax = plt.subplots(figsize=(11, 2.8))
+    unique = list(dict.fromkeys(segments))
+    seg_to_y = {s: i for i, s in enumerate(unique)}
+    y = np.array([seg_to_y[s] for s in segments])
+    for seg in unique:
+        mask = np.array([s == seg for s in segments])
+        ax.scatter(
+            t_hr[mask],
+            y[mask],
+            c=SEGMENT_COLORS.get(seg.value, "#333"),
+            s=14,
+            label=seg.value,
+        )
+    _shade_blackout(ax, t_hr, [s.in_blackout for s in timeline.samples], alpha=0.08)
+    ax.set_yticks(range(len(unique)))
+    ax.set_yticklabels([s.value for s in unique], fontsize=8)
+    ax.set_xlabel("time since epoch (hr)")
+    ax.set_title(title or f"Filter segments — {policy.value}")
+    ax.legend(loc="upper right", fontsize=7, ncol=2)
+    ax.grid(True, ls=":", alpha=0.4)
     fig.tight_layout()
     return fig
 
@@ -96,9 +277,9 @@ def plot_orbit_colored_by_mode(
     traj: PropagatedTrajectory,
     timeline: VisibilityTimeline,
     *,
-    title: str = "MCI orbit colored by nav mode",
+    title: str = "ELFO orbit — geometric source availability",
 ):
-    """3D Moon-centered orbit with color by navigation mode."""
+    """3D Moon-centered orbit colored by visibility (GNSS / relay / blackout)."""
     plt = _require_matplotlib()
     from pulsar_nav.visualization.orbit_plots import _draw_moon_sphere, _set_equal_3d
 
@@ -116,7 +297,7 @@ def plot_orbit_colored_by_mode(
             ".",
             ms=4,
             color=MODE_COLORS.get(mode, "#333"),
-            label=mode,
+            label=_mode_label(mode),
         )
     _draw_moon_sphere(ax, alpha=0.2)
     ax.set_xlabel("x (km)")

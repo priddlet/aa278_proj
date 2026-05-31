@@ -19,13 +19,28 @@ from pulsar_nav.visibility.lonet import (
 
 
 class NavMode(str, Enum):
-    """Navigation source availability (pitch hybrid configurations)."""
+    """
+    Which radio sources are geometrically available at one epoch.
 
-    GNSS = "gnss"  # Earth / sidelobe GNSS available
-    HYBRID = "hybrid"  # GNSS + LunaNet
-    LONET = "lonet"  # LunaNet only (near-side without GNSS - rare)
-    XNAV = "xnav"  # Pulsar only (far-side blackout)
+    This is **not** a Monte Carlo ``NavPolicy`` (``hybrid``, ``gnss_xnav``, etc.).
+    It labels visibility for timelines and orbit plots only.
+    """
+
+    GNSS = "gnss"  # GNSS sidelobe OK, no relay in view
+    HYBRID = "hybrid"  # GNSS + at least one LunaNet relay
+    LONET = "lonet"  # Relay visible, Earth below GNSS mask (uncommon on ELFO)
+    XNAV = "xnav"  # Far-side blackout: no GNSS (pulsars always an option)
     NONE = "none"
+
+
+# Human-readable orbit/timeline legend (avoid confusion with NavPolicy.GNSS_ONLY).
+NAV_MODE_DISPLAY: dict[NavMode, str] = {
+    NavMode.HYBRID: "GNSS + LunaNet visible",
+    NavMode.GNSS: "GNSS visible",
+    NavMode.LONET: "LunaNet only (no GNSS mask)",
+    NavMode.XNAV: "GNSS blackout",
+    NavMode.NONE: "none",
+}
 
 
 @dataclass

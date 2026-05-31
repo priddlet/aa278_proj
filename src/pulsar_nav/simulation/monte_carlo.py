@@ -51,9 +51,9 @@ class MonteCarloConfig:
     process_noise_accel: float = 1e-4
     use_truth_velocity_predict: bool = True
     policies: tuple[NavPolicy, ...] = (
-        NavPolicy.HYBRID,
         NavPolicy.XNAV_ONLY,
         NavPolicy.GNSS_ONLY,
+        NavPolicy.HYBRID,
     )
 
 
@@ -353,7 +353,7 @@ def run_pulsar_count_sweep(
     for n in counts:
         cfg = MonteCarloConfig(
             n_trials=base.n_trials,
-            seed=base.seed + n,
+            seed=base.seed,
             preset=base.preset,
             duration_s=base.duration_s,
             step_s=base.step_s,
@@ -377,7 +377,7 @@ def run_toa_noise_sweep(
     for i, sigma_us in enumerate(toa_sigmas_us):
         cfg = MonteCarloConfig(
             n_trials=base.n_trials,
-            seed=base.seed + 1000 + i,
+            seed=base.seed,
             preset=base.preset,
             duration_s=base.duration_s,
             step_s=base.step_s,

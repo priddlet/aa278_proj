@@ -1,0 +1,4 @@
+campaign,policy,n_trials,final_mean_km,final_std_km,final_p95_km,mean_error_km,rms_error_km,blackout_mean_km,non_blackout_mean_km,meets_lunanet_p95
+main,hybrid,20,1.149,0.081,1.291,0.492,2.393,0.453,0.562,False
+main,xnav_only,20,2.417,0.142,2.64,0.688,2.478,0.53,0.969,False
+main,gnss_only,20,65.786,47.632,153.022,39.749,52.021,52.703,16.578,False

@@ -89,11 +89,15 @@ python scripts/validate_visibility_anchors.py --preset elfo --duration 30
 # Hybrid EKF: XNAV always + GNSS/LunaNet when visible (Week 8)
 python scripts/demo_hybrid_elo.py --preset elfo --duration 6 --no-show
 
-# Monte Carlo: hybrid vs XNAV-only vs GNSS-only (Week 9)
+# Monte Carlo: xnav_only vs gnss_only vs hybrid switching (Week 9)
 # Defaults: 2× ELFO period (~26.4 hr), TOA σ = 1 µs
 python scripts/demo_monte_carlo.py --trials 20 --no-show
 python scripts/demo_monte_carlo.py --sweep-toa --trials 20 --no-show  # include 0.1 µs
-# Tables: docs/MONTE_CARLO_RESULTS.md
+# Tables: docs/MONTE_CARLO_RESULTS.md  (see docs/SIMULATION_LIMITATIONS.md for what is realistic)
+
+# Presentation bundle: common/ + truth_velocity/ + filter_predict/ figures
+python scripts/build_presentation_assets.py          # see docs/PRESENTATION.md
+python scripts/build_presentation_assets.py --pipelines filter_predict  # EKF-only predict
 
 pytest
 ```
