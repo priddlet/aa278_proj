@@ -93,7 +93,9 @@ python scripts/demo_hybrid_elo.py --preset elfo --duration 6 --no-show
 # Defaults: 2× ELFO period (~26.4 hr), TOA σ = 1 µs
 python scripts/demo_monte_carlo.py --trials 20 --no-show
 python scripts/demo_monte_carlo.py --sweep-toa --trials 20 --no-show  # include 0.1 µs
-# Tables: docs/MONTE_CARLO_RESULTS.md  (see docs/SIMULATION_LIMITATIONS.md for what is realistic)
+# Tables: docs/MONTE_CARLO_RESULTS.md  · policy pitch: docs/POLICY_COMPARISON.md
+# Far-side coast stress: python scripts/demo_monte_carlo.py --trials 20 --stress-coast --no-show
+# Hybrid non-blackout GNSS PDOP / PRN log: python scripts/log_hybrid_non_blackout_geometry.py
 
 # Presentation bundle: common/ + truth_velocity/ + filter_predict/ figures
 python scripts/build_presentation_assets.py          # see docs/PRESENTATION.md

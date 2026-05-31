@@ -72,6 +72,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Propagate with CV EKF model instead of truth velocity (more realistic)",
     )
+    p.add_argument(
+        "--stress-coast",
+        action="store_true",
+        help="Also run gnss_coast (GNSS visible, no measurements in blackout) after main table",
+    )
     return p.parse_args()
 
 
@@ -137,6 +142,26 @@ def main() -> None:
         export_bundle.main = result
         print()
         print(result.summary_table())
+
+        if args.stress_coast:
+            coast_cfg = MonteCarloConfig(
+                n_trials=n_trials,
+                seed=args.seed,
+                preset=cfg.preset,
+                duration_s=cfg.duration_s,
+                step_s=cfg.step_s,
+                toa_sigma_s=cfg.toa_sigma_s,
+                n_pulsars=cfg.n_pulsars,
+                use_truth_velocity_predict=use_truth_vel,
+                policies=(
+                    NavPolicy.HYBRID,
+                    NavPolicy.XNAV_ONLY,
+                    NavPolicy.GNSS_COAST,
+                ),
+            )
+            print("\nStress baseline (gnss_coast = no nav in blackout)...")
+            coast_res = run_monte_carlo(coast_cfg)
+            print(coast_res.summary_table())
 
     if args.sweep_pulsars and not args.quick:
         print("\nPulsar count sweep (hybrid + xnav)...")

@@ -62,12 +62,17 @@ python scripts/demo_monte_carlo.py --trials 20 --no-truth-velocity --no-show
 | Policy | GNSS visible | Blackout |
 |--------|--------------|----------|
 | `xnav_only` | Pulsars | Pulsars |
-| `gnss_only` | GNSS only | Pulsars |
-| `hybrid` | GNSS + LunaNet (if relay) | Pulsars |
+| `gnss_only` | GNSS (0 PRN → pulsar fallback) | Pulsars only (no LunaNet) |
+| `hybrid` | **Fuse** GNSS + pulsars + LunaNet (if relay) | Pulsars + supplemental LunaNet if relay |
+| `gnss_coast` | GNSS when visible | **No measurements** (stress baseline) |
+
+Honest comparison text: **[POLICY_COMPARISON.md](./POLICY_COMPARISON.md)**.
 
 ## Talking points
 
 - Use **common/** for geometry and **why** hybrid exists.
-- Use **truth_velocity/** for “hybrid vs XNAV vs GNSS” **trends** at 1 µs TOA.
+- Use **truth_velocity/** for policy **trends** at 1 µs TOA; lead with **final mean** and **segment means**, not RMS.
+- Far-side failure mode: **`gnss_coast` vs hybrid/XNAV** — not “`gnss_only` blows up in blackout” (current `gnss_only` uses pulsars there).
+- If segment bars show **lower error in blackout**, note periapsis + truth-velocity predict (see SIMULATION_LIMITATIONS).
 - Use **filter_predict/** when discussing **achievable** error scales without oracle propagation.
 - Do not mix plots from the two nav folders on one slide without labeling the predict mode.

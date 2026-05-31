@@ -10,7 +10,7 @@ from pulsar_nav.simulation.monte_carlo import (
     run_monte_carlo,
     select_pulsars,
 )
-from pulsar_nav.simulation.policy import NavPolicy, PolicySegment, active_segment
+from pulsar_nav.simulation.policy import NavPolicy, PolicySegment
 from pulsar_nav.spice.kernels import resolve_kernel_dir
 
 spiceypy = pytest.importorskip("spiceypy")
@@ -77,17 +77,18 @@ def test_aggregate_policy_stats():
     assert stats.meets_lunanet_p95 is False
 
 
-def test_active_segment_switching():
+def test_planned_and_measured_segments():
+    from pulsar_nav.simulation.policy import planned_segment, segment_from_measurements
     from pulsar_nav.visibility.blackout import NavMode, VisibilitySample
 
     blk = VisibilitySample(
         t_s=0.0,
         earth_elevation_deg=-10.0,
         gnss_visible=False,
-        lonet_visible=False,
-        n_lonet_visible=0,
-        max_lonet_elevation_deg=0.0,
-        nav_mode=NavMode.XNAV,
+        lonet_visible=True,
+        n_lonet_visible=2,
+        max_lonet_elevation_deg=30.0,
+        nav_mode=NavMode.LONET,
         in_blackout=True,
     )
     vis = VisibilitySample(
@@ -100,10 +101,15 @@ def test_active_segment_switching():
         nav_mode=NavMode.HYBRID,
         in_blackout=False,
     )
-    assert active_segment(NavPolicy.XNAV_ONLY, blk) == PolicySegment.XNAV_ONLY_ARC
-    assert active_segment(NavPolicy.GNSS_ONLY, blk) == PolicySegment.XNAV_BLACKOUT
-    assert active_segment(NavPolicy.GNSS_ONLY, vis) == PolicySegment.GNSS_VISIBLE
-    assert active_segment(NavPolicy.HYBRID, vis) == PolicySegment.HYBRID_VISIBLE
+    assert planned_segment(NavPolicy.HYBRID, blk) == PolicySegment.XNAV_LONET_SUPPLEMENT
+    assert segment_from_measurements(
+        NavPolicy.HYBRID, blk, n_gnss=0, n_lonet=2, n_pulsar=5
+    ) == PolicySegment.XNAV_LONET_SUPPLEMENT
+    assert planned_segment(NavPolicy.GNSS_ONLY, blk) == PolicySegment.XNAV_BLACKOUT
+    assert segment_from_measurements(
+        NavPolicy.GNSS_ONLY, vis, n_gnss=0, n_lonet=0, n_pulsar=5
+    ) == PolicySegment.GNSS_XNAV_FALLBACK
+    assert planned_segment(NavPolicy.HYBRID, vis) == PolicySegment.HYBRID_VISIBLE
 
 
 @pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")

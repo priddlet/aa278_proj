@@ -152,15 +152,16 @@ K = PH^T S^{-1},\quad
 P \leftarrow (I-KH)P
 \]
 
-`update_navigation_epoch` stacks XNAV + all pseudoranges in one \(H,R\) (avoids sequential over-weighting).
+`update_navigation_epoch` stacks XNAV + all pseudoranges in one \(H,R\) (avoids sequential over-weighting). GPS light-time in filter matches truth synthesis (`get_tx_position` callback). Covariance uses the standard \((I-KH)P\) form (not Joseph / square-root). Process noise \(Q\) uses a simplified diagonal clock block (bias \(\propto q_c \Delta t^2\), no bias–drift cross-term). XNAV rows of \(H\) do not observe clock states — in XNAV-only segments the clock covariance grows (physically expected).
 
 ### Visibility (`visibility/blackout.py`)
 
 - **Blackout (timeline):** `in_blackout = not gnss_earth_visible` — Earth below 5° elevation mask. This is a **geometric upper bound** on sidelobe availability (~40–75% on a 6 hr HW2 ELFO at the project epoch), not trackable PRN count.
 - **Trackable GPS (filter):** `visible_gps_prns` / `gps_sidelobe_limb_deg`: clear far-side SC→GPS line (not Earth-occulted, GPS farther than Earth), near-limb annulus (~≤6°), cap 4 PRNs. Does not model antenna gain or C/N₀; HW2 `gnss_measurements.pkl` is the course ground truth when available.
 - **LunaNet:** Walker relays at 8000 km; default 16 sats. Lecture anchors ~40–55% GDOP < 6 for small relay sets — validate with `scripts/validate_visibility_anchors.py`.
-- **NavMode:** GNSS / HYBRID / LONET / XNAV from GNSS + LunaNet flags.
-- **NavPolicy** (`simulation/policy.py`): switching measurement stacks — `xnav_only` (pulsars all arc), `gnss_only` (GNSS when not in blackout, pulsars in blackout), `hybrid` (GNSS+LunaNet when not in blackout, pulsars in blackout). `NavMode` is geometry-only for plots.
+- **NavMode:** geometric GNSS / relay flags only (can show `lonet` during blackout); **not** what the filter applied.
+- **NavPolicy** (`simulation/policy.py`): three phases — `xnav_only`; `gnss_only` (GNSS sidelobe PRNs when not in blackout, pulsars in blackout); `hybrid` (**non-blackout fuses** GNSS + all MSPs + LunaNet if relay; **blackout = pulsars + supplemental LunaNet** if relay visible). `gnss_only` uses pulsar fallback only at 0 PRNs. `HybridEpochLog.gnss_pdop` logs sidelobe geometry; `scripts/log_hybrid_non_blackout_geometry.py` summarizes PRN count / PDOP.
+- **PolicySegment / plots:** strip and MC shading use `segment_from_measurements` (actual EKF inputs), not `NavMode`.
 
 ---
 

@@ -51,7 +51,36 @@ def test_hybrid_uses_gnss_during_near_side(spice_loaded):
             assert log.n_gnss == 0
         else:
             assert log.n_gnss > 0
-            assert log.n_pulsar == 0
+            assert log.n_pulsar == n_msps, "non-blackout hybrid fuses GNSS with all MSPs"
+
+
+@pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")
+def test_hybrid_lonet_supplement_in_blackout_when_relay_visible(spice_loaded):
+    from pulsar_nav.catalog import load_catalog
+    from pulsar_nav.propagation.dynamics import DynamicsConfig
+    from pulsar_nav.propagation.propagator import LunarPropagator
+    from pulsar_nav.simulation.hybrid_run import run_hybrid_on_propagated
+    from pulsar_nav.simulation.policy import PolicySegment
+    from pulsar_nav.spice.ephemeris import str_to_et
+    from pulsar_nav.visibility.blackout import compute_visibility_timeline
+
+    et0 = str_to_et("2026-01-15 12:00:00")
+    prop = LunarPropagator(et0, config=DynamicsConfig(), auto_load_kernels=False)
+    traj = prop.propagate_preset("elfo", duration_s=26.4 * 3600.0, step_s=120.0)
+    tl = compute_visibility_timeline(traj)
+    res = run_hybrid_on_propagated(
+        traj, load_catalog(), timeline=tl, rng=np.random.default_rng(1)
+    )
+
+    supplemental = [
+        log
+        for log in res.epoch_logs[1:]
+        if log.in_blackout and log.n_lonet > 0 and log.n_pulsar > 0
+    ]
+    assert supplemental, "HYBRID should use supplemental LunaNet in some blackout epochs"
+    assert all(
+        log.policy_segment == PolicySegment.XNAV_LONET_SUPPLEMENT for log in supplemental
+    )
 
 
 @pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")
@@ -73,7 +102,6 @@ def test_hybrid_beats_xnav_only_on_elfo(spice_loaded):
         process_noise_accel=1e-4,
         use_truth_velocity_predict=True,
     )
-    from pulsar_nav.simulation.xnav_run import run_xnav_on_propagated
 
     hybrid = run_hybrid_on_propagated(
         traj, load_catalog(), timeline=tl, rng=np.random.default_rng(1), **kw
@@ -81,7 +109,6 @@ def test_hybrid_beats_xnav_only_on_elfo(spice_loaded):
     assert hybrid.final_position_error_m < kw["position_offset_m"]
     assert hybrid.position_error_m[0] <= kw["position_offset_m"] * 1.1
 
-    # GNSS-visible epochs should be corrected well after pseudorange updates
     gnss_errors = [
         err
         for log, err in zip(hybrid.epoch_logs[1:], hybrid.position_error_m[1:])

@@ -9,11 +9,12 @@ import numpy as np
 from pulsar_nav.catalog.pulsar import Pulsar
 from pulsar_nav.constants import DEFAULT_TOA_SIGMA_S
 from pulsar_nav.filter.ekf import PulsarNavEKF
-from pulsar_nav.measurements.gnss_meas import gnss_pseudoranges
+from pulsar_nav.measurements.gnss_meas import gnss_pseudoranges, gnss_sidelobe_los_unit_rows
+from pulsar_nav.visibility.gdop import position_dop_from_los
 from pulsar_nav.measurements.lonet_meas import lonet_pseudoranges
 from pulsar_nav.measurements.xnav import synthesize_measurement
 from pulsar_nav.propagation.propagator import PropagatedTrajectory
-from pulsar_nav.simulation.policy import NavPolicy, PolicySegment, active_segment
+from pulsar_nav.simulation.policy import NavPolicy, PolicySegment, segment_from_measurements
 from pulsar_nav.simulation.xnav_run import offset_initial_position
 from pulsar_nav.spice.ephemeris import body_position_mci
 from pulsar_nav.visibility.blackout import NavMode, VisibilitySample, VisibilityTimeline, compute_visibility_timeline
@@ -33,6 +34,7 @@ class HybridEpochLog:
     n_lonet: int
     n_pulsar: int
     in_blackout: bool
+    gnss_pdop: float = float("nan")
 
 
 @dataclass
@@ -93,6 +95,42 @@ def _build_relay_positions(
     return propagate_constellation_mci(coes, traj.t_rel_s)
 
 
+def _xnav_measurements(
+    pulsars: list[Pulsar],
+    truth_position_m: np.ndarray,
+    rng: np.random.Generator,
+    toa_sigma_s: float,
+) -> list:
+    return [
+        synthesize_measurement(p, truth_position_m, rng, toa_sigma_s)
+        for p in pulsars
+    ]
+
+
+def _lonet_if_visible(
+    sample: VisibilitySample,
+    *,
+    truth_position_m: np.ndarray,
+    relay_pos_km: np.ndarray,
+    et: float,
+    et0: float,
+    rng: np.random.Generator,
+    lonet_sigma_m: float,
+    lonet_config: LunaNetConfig,
+) -> list:
+    if not sample.lonet_visible:
+        return []
+    return lonet_pseudoranges(
+        truth_position_m,
+        relay_pos_km,
+        et,
+        rng,
+        sigma_m=lonet_sigma_m,
+        et0=et0,
+        lonet_config=lonet_config,
+    )
+
+
 def measurements_for_epoch(
     sample: VisibilitySample,
     policy: NavPolicy,
@@ -108,38 +146,46 @@ def measurements_for_epoch(
     gnss_sigma_m: float,
     lonet_sigma_m: float,
     lonet_config: LunaNetConfig,
+    xnav_fallback_on_empty_gnss: bool = True,
 ) -> tuple[list, list, list]:
     """
     Return (gnss_meas, lonet_meas, xnav_meas) for this epoch.
 
-    Switching policies (by ``sample.in_blackout``):
+    Three primary phases (``NavPolicy``), with **LunaNet supplemental** when
+    ``sample.lonet_visible`` in hybrid blackout — not a separate fourth phase.
 
     - ``XNAV_ONLY``: pulsars every epoch.
-    - ``GNSS_ONLY``: GNSS when not in blackout; pulsars in blackout only.
-    - ``HYBRID``: GNSS (+ LunaNet if relays visible) when not in blackout; pulsars in blackout.
-    - ``GNSS_COAST``: GNSS when not in blackout; nothing in blackout.
+    - ``GNSS_ONLY``: GNSS sidelobe PRNs when not in blackout; pulsars in blackout.
+    - ``HYBRID``: non-blackout **fuses** GNSS (+ LunaNet if relay) with pulsars;
+      blackout uses pulsars + supplemental LunaNet if relay visible.
+    - If a non-blackout epoch has 0 trackable PRNs, fall back to pulsars
+      (``xnav_fallback_on_empty_gnss``).
     """
     xnav: list = []
     gnss: list = []
     lonet: list = []
 
     if policy == NavPolicy.XNAV_ONLY:
-        xnav = [
-            synthesize_measurement(p, truth_position_m, rng, toa_sigma_s)
-            for p in pulsars
-        ]
-        return gnss, lonet, xnav
+        return [], [], _xnav_measurements(pulsars, truth_position_m, rng, toa_sigma_s)
 
     if sample.in_blackout:
         if policy == NavPolicy.GNSS_COAST:
             return gnss, lonet, xnav
-        xnav = [
-            synthesize_measurement(p, truth_position_m, rng, toa_sigma_s)
-            for p in pulsars
-        ]
+        xnav = _xnav_measurements(pulsars, truth_position_m, rng, toa_sigma_s)
+        if policy == NavPolicy.HYBRID:
+            lonet = _lonet_if_visible(
+                sample,
+                truth_position_m=truth_position_m,
+                relay_pos_km=relay_pos_km,
+                et=et,
+                et0=et0,
+                rng=rng,
+                lonet_sigma_m=lonet_sigma_m,
+                lonet_config=lonet_config,
+            )
         return gnss, lonet, xnav
 
-    # Non-blackout: GNSS visible
+    # Non-blackout: geometric GNSS window (sidelobe PRNs may still be 0)
     gnss = gnss_pseudoranges(
         truth_position_m,
         earth_mci_km,
@@ -149,22 +195,26 @@ def measurements_for_epoch(
         et0=et0,
     )
 
-    if policy == NavPolicy.GNSS_ONLY:
-        return gnss, lonet, xnav
-
-    if policy == NavPolicy.HYBRID and sample.nav_mode in (NavMode.HYBRID, NavMode.LONET):
-        lonet = lonet_pseudoranges(
-            truth_position_m,
-            relay_pos_km,
-            et,
-            rng,
-            sigma_m=lonet_sigma_m,
+    if policy == NavPolicy.HYBRID:
+        lonet = _lonet_if_visible(
+            sample,
+            truth_position_m=truth_position_m,
+            relay_pos_km=relay_pos_km,
+            et=et,
             et0=et0,
+            rng=rng,
+            lonet_sigma_m=lonet_sigma_m,
             lonet_config=lonet_config,
         )
+        # Joint update: keep pulsar geometry when sidelobe GNSS is collinear (periapsis).
+        xnav = _xnav_measurements(pulsars, truth_position_m, rng, toa_sigma_s)
 
-    if policy == NavPolicy.GNSS_COAST:
-        return gnss, lonet, xnav
+    elif (
+        xnav_fallback_on_empty_gnss
+        and not gnss
+        and policy == NavPolicy.GNSS_ONLY
+    ):
+        xnav = _xnav_measurements(pulsars, truth_position_m, rng, toa_sigma_s)
 
     return gnss, lonet, xnav
 
@@ -248,12 +298,11 @@ def run_hybrid_ekf(
     est_pos = np.zeros((n, 3))
     pos_err = np.zeros(n)
     modes = np.array([s.nav_mode.value for s in timeline.samples], dtype=object)
-    segments = np.array([active_segment(policy, s).value for s in timeline.samples], dtype=object)
+    segments = np.empty(n, dtype=object)
     logs: list[HybridEpochLog] = []
 
     for i in range(n):
         sample = timeline.samples[i]
-        seg = active_segment(policy, sample)
         gnss: list = []
         lonet: list = []
         xnav: list = []
@@ -295,6 +344,20 @@ def run_hybrid_ekf(
         est_pos[i] = ekf.state.position_m
         pos_err[i] = np.linalg.norm(est_pos[i] - truth_pos[i])
 
+        gnss_pdop = float("nan")
+        if gnss:
+            los = gnss_sidelobe_los_unit_rows(truth_pos[i], traj.et[i])
+            gnss_pdop = position_dop_from_los(los)
+
+        seg = segment_from_measurements(
+            policy,
+            sample,
+            n_gnss=len(gnss),
+            n_lonet=len(lonet),
+            n_pulsar=len(xnav),
+        )
+        segments[i] = seg.value
+
         logs.append(
             HybridEpochLog(
                 t_s=float(traj.t_rel_s[i]),
@@ -304,6 +367,7 @@ def run_hybrid_ekf(
                 n_lonet=len(lonet),
                 n_pulsar=len(xnav),
                 in_blackout=sample.in_blackout,
+                gnss_pdop=gnss_pdop,
             )
         )
 

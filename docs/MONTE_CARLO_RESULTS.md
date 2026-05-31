@@ -5,32 +5,44 @@
 **Orbit:** ELFO truth (HW2 case 1, Earth-OP frame) · **Epoch:** 2026-01-15 12:00 UTC  
 **Arc:** 26.4 hr (2× orbital period, T ≈ 13.2 hr at a = 6541.4 km)  
 **GNSS:** broadcast ephemeris + corrected sidelobe gate (far-side clear LOS, limb annulus)  
-**Policies (switching):** `xnav_only` (pulsars all arc); `gnss_only` (GNSS if visible, pulsars in blackout); `hybrid` (GNSS+LunaNet if visible, pulsars in blackout)  
+**Policies:** `xnav_only`; `gnss_only` (GNSS + pulsar fallback at 0 PRN; pulsars in blackout); `hybrid` (**fuses** GNSS + pulsars + LunaNet non-blackout; pulsars+LunaNet in blackout). Far-side **coast** baseline: `gnss_coast`. Regenerate after policy changes.  
 **Noise:** TOA σ = **1 µs** (~300 m range), GNSS/LunaNet σ = 15 m, offset uniform 30–100 km
 
-Run: `python scripts/demo_monte_carlo.py --trials 20 --no-show`
+Run: `python scripts/demo_monte_carlo.py --trials 20 --no-show` · Framing: **[POLICY_COMPARISON.md](./POLICY_COMPARISON.md)**
 
 **Blackout fraction (26.4 hr):** ~64%  
 **LunaNet 13.43 m:** LCRNS steady-state relay target — not the bar for XNAV/hybrid at km-scale init; success = **graceful degradation** on the far side.
 
 ---
 
-## Current campaign — three policies (20 trials, 26.4 hr, 1 µs TOA)
+## Current campaign — three policies (20 trials, 26.4 hr, 1 µs TOA, truth-velocity predict)
+
+Regenerated **May 2026** after `gnss_only` / `gnss_coast` split (blackout segment means reconcile with overall mean at ~64.1% blackout).
 
 | Policy | Final mean (km) | Final p95 (km) | RMS (km) | Blackout μ (km) | Non-blackout μ (km) |
 |--------|-----------------|----------------|----------|-----------------|---------------------|
-| **hybrid** | **1.15** | 1.29 | **2.39** | **0.45** | **0.56** |
-| **xnav_only** | 2.42 | 2.64 | 2.48 | 0.53 | 0.97 |
-| **gnss_only** | 65.8 | 153.0 | 52.0 | 52.7 | **16.7** |
+| **hybrid** | **1.13** | 1.29 | **2.39** | **0.45** | **0.56** |
+| **xnav_only** | 2.44 | 2.62 | 2.48 | 0.53 | 0.97 |
+| **gnss_only** | 6.02 | 6.26 | 15.45 | **0.53** | 20.56 |
 
 **Takeaways**
 
-- **Hybrid beats XNAV-only** on final mean, RMS, and blackout segment in **20/20 trials** (was corrupted by inverted sidelobe gate + 100 µs TOA floor).
-- **GNSS split is correct:** non-blackout **16.7 km** vs blackout **52.7 km** (GNSS-only coasts with no measurements in blackout).
-- **Fusion headline:** hybrid non-blackout **0.56 km** vs XNAV **0.97 km** vs GNSS **16.7 km**; hybrid RMS **2.4 km** beats both components.
-- **XNAV periapsis gap** persists mildly (non-blackout 0.97 vs blackout 0.53 km) — CV predict vs e = 0.6 dynamics; two-body predict would flatten this.
-- **GNSS-only** still km-scale: sparse 0–4 sidelobe PRNs, poor DOP, 30–100 km init — not a 15 m steady-state fix.
-- Do **not** expect 13.43 m at these init errors; frame XNAV value as **far-side continuity** while GNSS-only blows up in blackout.
+- **Hybrid wins final mean and RMS** (1.1 km / 2.4 km vs XNAV 2.4 km / 2.5 km) with **non-blackout fusion** (GNSS + pulsars + LunaNet), not GNSS-only switching near periapsis.
+- **`gnss_only` blackout ≈ XNAV blackout (~0.5 km)** — both use five pulsars in blackout. **52.7 km** blackout rows were **`gnss_coast`** (stress table below).
+- **Why fusion matters:** switching-only hybrid non-blackout was **~3.9 km** (GNSS without pulsars); fused hybrid **0.56 km** — sidelobe PRNs are nearly collinear (median PDOP ≫ 100 on 4-PRN epochs; `log_hybrid_non_blackout_geometry.py`). Pulsars stabilize the stacked update.
+- **`gnss_only` near side** stays poor (**20.6 km** non-blackout) — no pulsars when GNSS is up; only pulsar fallback at 0 PRN.
+- **Blackout μ < non-blackout μ** for hybrid/XNAV (e.g. 0.45 vs 3.87) is the **periapsis + truth-velocity predict** artifact, not “worse when measurements are best” — call out on slides.
+- **Far-side continuity pitch:** compare pulsar-backed policies to **`gnss_coast`**, not to `gnss_only` blackout error.
+
+### Stress baseline — `gnss_coast` (same campaign, 20 trials)
+
+| Policy | Final mean (km) | Final p95 (km) | RMS (km) | Blackout μ (km) | Non-blackout μ (km) |
+|--------|-----------------|----------------|----------|-----------------|---------------------|
+| **hybrid** | 1.55 | 1.74 | 4.61 | 0.46 | 3.90 |
+| **xnav_only** | 2.42 | 2.64 | 2.48 | 0.53 | 0.97 |
+| **gnss_coast** | **65.79** | 153.02 | 52.02 | **52.70** | 16.58 |
+
+`gnss_coast` reproduces the **legacy** headline (no measurements in blackout). Run: `python scripts/demo_monte_carlo.py --trials 20 --stress-coast --no-show`.
 
 ---
 
@@ -109,6 +121,8 @@ GNSS-only is insensitive to pulsar TOA (no pulsars). Hybrid and XNAV degrade sim
 
 ## 6. Per-trial sample — main campaign (trial 0–4)
 
+> **Stale** — GNSS final columns (~120 km) are from pre-split coast behavior. Regenerate trials export after `demo_monte_carlo.py`.
+
 Each trial uses one random offset; all three policies share the same offset per trial.
 
 | Trial | Offset (km) | Hybrid final | XNAV final | GNSS final | Hybrid mean | XNAV mean |
@@ -131,7 +145,8 @@ Full per-trial CSV: 60 rows (20 trials × 3 policies) — regenerate with `run_m
 | `test_aggregate_policy_stats` | Mean, p95, LunaNet flag aggregation |
 | `test_monte_carlo_runs_all_policies` | 2 trials × 3 policies completes; errors < 500 km |
 | `test_hybrid_beats_xnav_with_broadcast_gps` | 2 trials, 4 hr: hybrid final mean ≤ 1.05 × XNAV |
-| `test_hybrid_beats_gnss_only_in_blackout_heavy_arc` | 3 trials: hybrid blackout mean < GNSS-only |
+| `test_gnss_only_uses_pulsars_in_blackout` | Representative arc: `gnss_only` blackout error ≪ `gnss_coast` |
+| `test_hybrid_beats_gnss_coast_in_blackout_heavy_arc` | 3 trials: hybrid blackout mean < `gnss_coast` |
 
 ---
 

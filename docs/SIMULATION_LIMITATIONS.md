@@ -56,8 +56,10 @@ Sweeps use a **common seed** across σ so each trial’s offset is the same when
 | Policy | Non-blackout | Blackout |
 |--------|--------------|----------|
 | `xnav_only` | Pulsars | Pulsars |
-| `gnss_only` | GNSS only | Pulsars |
-| `hybrid` | GNSS + LunaNet (if visible) | Pulsars |
+| `gnss_only` | GNSS sidelobe PRNs (0 PRN → pulsar fallback) | Pulsars only |
+| `hybrid` | **Fuse** GNSS + pulsars + LunaNet if relay | Pulsars + **supplemental LunaNet** if relay |
+
+LunaNet is **not** a fourth standalone phase. Plots label measured segments (`xnav + LunaNet supplemental (blackout)`), not geometric `NavMode.lonet`. Run `gnss_sidelobe_coverage_stats` to see how often non-blackout epochs have ≥4 trackable PRNs.
 
 `docs/MONTE_CARLO_RESULTS.md` sections marked **legacy / 6 hr / pre-switching** may not match current figures until regenerated.
 

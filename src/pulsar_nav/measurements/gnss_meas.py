@@ -170,3 +170,32 @@ def gnss_pseudoranges(
             )
         )
     return meas
+
+
+def gnss_sidelobe_los_unit_rows(
+    spacecraft_icrs_m: np.ndarray,
+    et: float,
+    *,
+    ephem: GpsBroadcastEphemeris | None = None,
+    max_sats: int | None = DEFAULT_MAX_GPS_PRNS,
+) -> np.ndarray:
+    """Unit LOS rows (N×3) for sidelobe PRNs at ``et`` — for PDOP / geometry checks."""
+    ephem = ephem or default_gps_ephemeris()
+    r_sc_km = icrs_position_to_mci_km(spacecraft_icrs_m, et)
+    prns = visible_gps_prns(
+        r_sc_km,
+        et,
+        ephem,
+        sidelobe_only=True,
+        max_prns=max_sats,
+    )
+    rows: list[np.ndarray] = []
+    for prn in prns:
+        r_tx, _ = get_gps_posclk_mci(et, prn, ephem)
+        dr = np.asarray(r_tx, float) - r_sc_km
+        n = float(np.linalg.norm(dr))
+        if n > 1e-12:
+            rows.append(dr / n)
+    if not rows:
+        return np.empty((0, 3))
+    return np.vstack(rows)

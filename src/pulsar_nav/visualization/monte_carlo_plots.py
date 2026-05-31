@@ -8,7 +8,7 @@ import numpy as np
 
 from pulsar_nav.simulation.hybrid_run import HybridRunResult
 from pulsar_nav.simulation.monte_carlo import LUNANET_REQUIREMENT_M, MonteCarloResult
-from pulsar_nav.simulation.policy import SEGMENT_COLORS, NavPolicy, active_segment
+from pulsar_nav.simulation.policy import SEGMENT_COLORS, NavPolicy, planned_segment
 from pulsar_nav.simulation.presentation_runs import PolicyErrorEnvelope
 from pulsar_nav.visibility.blackout import VisibilityTimeline
 
@@ -198,14 +198,19 @@ def _shade_policy_segments(
     t_hr: np.ndarray,
     timeline: VisibilityTimeline,
     policy: NavPolicy,
+    run: HybridRunResult | None = None,
 ) -> None:
-    """Background tint by active filter segment for this policy."""
-    segments = [active_segment(policy, s) for s in timeline.samples]
+    """Background tint by filter segment (measured if ``run`` provided)."""
+    if run is not None and len(run.policy_segments) == len(timeline.samples):
+        segments = list(run.policy_segments)
+    else:
+        segments = [planned_segment(policy, s).value for s in timeline.samples]
     start_i = 0
     for i in range(1, len(segments) + 1):
         if i == len(segments) or segments[i] != segments[start_i]:
             seg = segments[start_i]
-            color = SEGMENT_COLORS.get(seg.value, "#ccc")
+            key = seg.value if hasattr(seg, "value") else str(seg)
+            color = SEGMENT_COLORS.get(key, "#ccc")
             ax.axvspan(t_hr[start_i], t_hr[i - 1], color=color, alpha=0.12)
             start_i = i
 
@@ -224,7 +229,7 @@ def plot_policy_error_propagation(
     t_hr = run.t_s / 3600.0
     color = POLICY_COLORS.get(policy, "#333")
     ax.plot(t_hr, run.position_error_m / 1e3, lw=1.3, color=color, label=policy.value)
-    _shade_policy_segments(ax, t_hr, timeline, policy)
+    _shade_policy_segments(ax, t_hr, timeline, policy, run=run)
     ax.set_xlabel("time since epoch (hr)")
     ax.set_ylabel("position error (km)")
     subtitle = f"init offset {offset_km:.1f} km" if offset_km is not None else ""
@@ -288,7 +293,7 @@ def plot_policy_error_envelope(
     Note: a wide band (e.g. 0–70 km) at one time means *trials disagree then*,
     not that a single run swings 0–70 km. After policy switch into blackout,
     mean often drops to ~0.2–0.7 km (XNAV segment), which looks like “zero” on
-    a scale set by GNSS-visible epochs (10–70 km for ``gnss_only``).
+    GNSS-visible epochs; ``gnss_coast`` can reach 10–150 km in blackout (no updates).
     """
     plt = _require_matplotlib()
     fig, ax = plt.subplots(figsize=(11, 4.5))
@@ -427,4 +432,6 @@ def save_figure(fig, path: str | Path, dpi: int = 200) -> Path:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    plt = _require_matplotlib()
+    plt.close(fig)
     return path

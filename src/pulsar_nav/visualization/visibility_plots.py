@@ -10,8 +10,7 @@ from pulsar_nav.propagation.propagator import PropagatedTrajectory
 from pulsar_nav.simulation.policy import (
     SEGMENT_COLORS,
     NavPolicy,
-    PolicySegment,
-    active_segment,
+    planned_segment,
 )
 from pulsar_nav.visibility.blackout import (
     NAV_MODE_DISPLAY,
@@ -214,7 +213,7 @@ def plot_orbit_colored_by_policy(
     fig = plt.figure(figsize=(9, 7))
     ax = fig.add_subplot(111, projection="3d")
     pos = traj.position_mci_km
-    segments = [active_segment(policy, s) for s in timeline.samples]
+    segments = [planned_segment(policy, s) for s in timeline.samples]
 
     for seg in dict.fromkeys(segments):
         mask = np.array([s == seg for s in segments])
@@ -247,7 +246,7 @@ def plot_policy_segment_timeline(
     """Which measurement segment is active vs time for one ``NavPolicy``."""
     plt = _require_matplotlib()
     t_hr = np.array([s.t_s for s in timeline.samples]) / 3600.0
-    segments = [active_segment(policy, s) for s in timeline.samples]
+    segments = [planned_segment(policy, s) for s in timeline.samples]
 
     fig, ax = plt.subplots(figsize=(11, 2.8))
     unique = list(dict.fromkeys(segments))
@@ -325,7 +324,10 @@ def _shade_blackout(ax, t_hr, in_blackout, alpha=0.2) -> None:
 
 
 def save_figure(fig, path: str | Path, dpi: int = 150) -> Path:
+    import matplotlib.pyplot as plt
+
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    plt.close(fig)
     return path

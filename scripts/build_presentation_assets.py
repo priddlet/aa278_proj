@@ -184,6 +184,10 @@ def build_common_figures(
     )
     bf = 100.0 * vis_tl.blackout_fraction
     print(f"  {args.preset.upper()} {args.visibility_hr:.0f} hr — blackout {bf:.1f}%")
+    from pulsar_nav.visibility.gnss_coverage import gnss_sidelobe_coverage_stats
+
+    gnss_cov = gnss_sidelobe_coverage_stats(vis_traj, vis_tl)
+    print(f"  GNSS sidelobe trackability: {gnss_cov.summary_line()}")
 
     def _save(fig, name: str) -> None:
         save_vis_figure(fig, common_dir / name, dpi=200)
@@ -225,7 +229,9 @@ def build_common_figures(
         f"## Common geometry — {args.preset.upper()}\n\n"
         f"Arc: **{args.visibility_hr:.0f} hr** · Blackout: **{bf:.1f}%** · "
         f"Windows: **{len(vis_tl.windows)}**\n\n"
-        "These plots do not depend on EKF predict mode.\n"
+        f"**{gnss_cov.summary_line()}** (geometric non-blackout vs sidelobe PRNs)\n\n"
+        "Orbit segment plots show **planned** policy phases; MC propagation plots use "
+        "**measured** segments from the filter run.\n"
     )
     return saved, md
 
