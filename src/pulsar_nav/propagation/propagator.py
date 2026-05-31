@@ -59,10 +59,11 @@ def elfo_initial_coe_op() -> tuple[float, ...]:
 
 def elfo_nav_initial_coe_op() -> tuple[float, ...]:
     """
-    GNSS-friendly ELFO: same elements as HW2 case 1 but argp + 180 deg.
+    Alternate phasing of HW2 case 1: same elements but argp + 180 deg in OP frame.
 
-    Apoapsis dwell is on the Earth-facing hemisphere (~80% GNSS visible vs ~15%
-    for the science/frozen ``elfo`` preset with far-side apoapsis).
+    Swaps apoapsis/periapsis orientation relative to the Earth-Moon geometry.
+    GNSS visibility differs modestly from the science ``elfo`` preset (not the
+    large far-side/near-side split that appeared when COE were mapped via MOON_PA).
     """
     a, e, inc, raan, argp, m0 = elfo_initial_coe_op()
     return (a, e, inc, raan, (argp + np.pi) % (2.0 * np.pi), m0)

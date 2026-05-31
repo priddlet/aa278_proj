@@ -83,6 +83,9 @@ python scripts/demo_xnav_with_truth.py --preset elfo --duration 6 --no-show
 # GNSS blackout + LunaNet visibility on ELFO (30 hr orbit)
 python scripts/demo_blackout_elo.py --preset elfo --duration 30 --no-show
 
+# Validate visibility vs lecture anchors (GNSS PRN count, orbit phase, LunaNet)
+python scripts/validate_visibility_anchors.py --preset elfo --duration 30
+
 # Hybrid EKF: XNAV always + GNSS/LunaNet when visible (Week 8)
 python scripts/demo_hybrid_elo.py --preset elfo --duration 6 --no-show
 

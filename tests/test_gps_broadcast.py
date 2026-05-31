@@ -36,20 +36,16 @@ def test_get_gps_posclk_mci(gps_ready):
 
 
 @pytest.mark.skipif(not _brdc_available(), reason="brdc_data.npz not on disk")
-def test_visible_gps_prns_on_lunar_orbit(gps_ready):
-    from pulsar_nav.ephemeris.gps_posclk import get_gps_posclk_mci
+def test_visible_gps_prns_sidelobe_sparse(gps_ready):
     from pulsar_nav.measurements.gnss_meas import visible_gps_prns
-    from pulsar_nav.spice.ephemeris import str_to_et
-
-    from pulsar_nav.propagation.propagator import LunarPropagator
     from pulsar_nav.propagation.dynamics import DynamicsConfig
+    from pulsar_nav.propagation.propagator import LunarPropagator
+    from pulsar_nav.spice.ephemeris import str_to_et
 
     et0 = str_to_et("2026-01-15 12:00:00")
     prop = LunarPropagator(et0, config=DynamicsConfig(), auto_load_kernels=False)
-    traj = prop.propagate_preset("elfo", duration_s=60.0, step_s=60.0)
-    r_sc = traj.position_mci_km[0]
-    prns = visible_gps_prns(r_sc, et0)
-    assert len(prns) >= 1
-    for prn in prns[:3]:
-        r, _ = get_gps_posclk_mci(et0, prn)
-        assert np.linalg.norm(r - r_sc) > 1000.0
+    traj = prop.propagate_preset("elfo", duration_s=6.0 * 3600.0, step_s=120.0)
+    counts = [len(visible_gps_prns(traj.position_mci_km[i], traj.et[i])) for i in range(len(traj.t_rel_s))]
+    c = np.array(counts)
+    assert c.max() <= 4
+    assert np.mean(c > 0) < 0.5

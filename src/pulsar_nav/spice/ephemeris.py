@@ -68,6 +68,38 @@ def mci_to_icrs_position(position_mci_km: np.ndarray, et: float) -> np.ndarray:
     return moon_position_icrs_km(et) + np.asarray(position_mci_km, dtype=float)
 
 
-def mci_to_op_rotation(et: float) -> np.ndarray:
-    """6x6 state rotation matrix from MCI (J2000) to Moon principal-axis frame."""
+def mci_to_pa_rotation(et: float) -> np.ndarray:
+    """6x6 state rotation from MCI (J2000) to Moon principal-axis (body-fixed) frame."""
     return np.asarray(spice.sxform("J2000", "MOON_PA", et), dtype=float)
+
+
+def mci_to_op_rotation(et: float) -> np.ndarray:
+    """
+    6x6 state rotation from MCI (J2000) to Earth orbital-plane (OP) frame.
+
+    AA278 HW2 P2.3: ``z_OP`` aligns with Earth-Moon ``r × v``; ``x_OP`` is built
+    from the lunar pole (MOON_PA z-axis in MCI) crossed with ``z_OP``. The result
+    is block-diagonal (same 3×3 on position and velocity), so ``R.T`` is the
+    inverse map from OP to MCI — unlike ``mci_to_pa_rotation`` via ``sxform``.
+    """
+    rv_em, _ = spice.spkezr("EARTH", et, "J2000", "NONE", "MOON")
+    r_em = np.asarray(rv_em[:3], dtype=float)
+    v_em = np.asarray(rv_em[3:6], dtype=float)
+
+    z_op = np.cross(r_em, v_em)
+    z_op /= np.linalg.norm(z_op)
+
+    pole_mci = spice.pxform("MOON_PA", "J2000", et) @ np.array([0.0, 0.0, 1.0])
+    pole_mci /= np.linalg.norm(pole_mci)
+
+    x_op = np.cross(pole_mci, z_op)
+    x_op /= np.linalg.norm(x_op)
+
+    y_op = np.cross(z_op, x_op)
+    y_op /= np.linalg.norm(y_op)
+
+    c_op = np.vstack((x_op, y_op, z_op))
+    rot = np.zeros((6, 6))
+    rot[:3, :3] = c_op
+    rot[3:, 3:] = c_op
+    return rot

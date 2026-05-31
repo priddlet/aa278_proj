@@ -97,6 +97,8 @@ Moon-centered specific force (km/s²):
 
 Optional: Moon J2, solar radiation pressure. Integrated with `scipy.integrate.solve_ivp` (`propagator.py`). Earth/Sun positions from SPICE DE440.
 
+**Initial state:** HW2 frozen-orbit COE are defined in the Earth orbital-plane (OP) frame. `mci_to_op_rotation` (HW2 P2.3) maps OP → MCI via block-diagonal rotation built from Earth `r×v` and the lunar pole — not `MOON_PA` `sxform` (see `spice/ephemeris.py`).
+
 **ICRS truth position:**
 
 \[
@@ -154,7 +156,9 @@ P \leftarrow (I-KH)P
 
 ### Visibility (`visibility/blackout.py`)
 
-- **Blackout:** `in_blackout = not gnss_visible` (Earth below 5° elevation mask).
+- **Blackout (timeline):** `in_blackout = not gnss_earth_visible` — Earth below 5° elevation mask. This is a **geometric upper bound** on sidelobe availability (~40–75% on a 6 hr HW2 ELFO at the project epoch), not trackable PRN count.
+- **Trackable GPS (filter):** `visible_gps_prns` adds Earth occultation of each SC→GPS line (sidelobe geometry) and caps at 4 PRNs — expect **0–2 PRNs** most epochs, with genuine zero intervals. Does not model antenna gain or C/N₀; HW2 `gnss_measurements.pkl` is the course ground truth when available.
+- **LunaNet:** Walker relays at 8000 km; default 16 sats. Lecture anchors ~40–55% GDOP < 6 for small relay sets — validate with `scripts/validate_visibility_anchors.py`.
 - **NavMode:** GNSS / HYBRID / LONET / XNAV from GNSS + LunaNet flags.
 - **NavPolicy** (`simulation/policy.py`): which sensors the filter *uses* (hybrid = XNAV always + GNSS/LunaNet when mode allows).
 

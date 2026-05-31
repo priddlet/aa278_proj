@@ -36,7 +36,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--compare-elfo",
         action="store_true",
-        help="Run Monte Carlo for elfo (far-side apo) and elfo_nav (near-side apo)",
+        help="Run Monte Carlo for elfo (HW2 frozen) and elfo_nav (argp+180 deg OP phasing)",
     )
     p.add_argument("--duration", type=float, default=6.0, help="Hours")
     p.add_argument("--step", type=float, default=120.0, help="Seconds")

@@ -58,3 +58,39 @@ def test_acceleration_finite(spice_loaded):
     a = acceleration_mci(r, et, DynamicsConfig())
     assert np.all(np.isfinite(a))
     assert np.linalg.norm(a) > 0.0
+
+
+@pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")
+def test_mci_to_op_rotation_matches_hw_p23(spice_loaded):
+    """Regression against AA278 HW2 P2.3 autograder at 2026-01-01T00:00:00."""
+    from pulsar_nav.spice.ephemeris import mci_to_op_rotation, str_to_et
+
+    et = str_to_et("2026-01-01T00:00:00")
+    rot = mci_to_op_rotation(et)
+    expected = np.array(
+        [
+            0.945, -0.3, -0.13, 0.0, 0.0, 0.0,
+            0.326, 0.829, 0.455, 0.0, 0.0, 0.0,
+            -0.029, -0.473, 0.881, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.945, -0.3, -0.13,
+            0.0, 0.0, 0.0, 0.326, 0.829, 0.455,
+            0.0, 0.0, 0.0, -0.029, -0.473, 0.881,
+        ]
+    ).reshape(6, 6)
+    assert rot.shape == (6, 6)
+    np.testing.assert_allclose(rot, expected, atol=1e-3)
+    np.testing.assert_allclose(rot.T @ rot, np.eye(6), atol=1e-12)
+
+
+@pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")
+def test_initial_state_mci_from_coe_op_roundtrip(spice_loaded):
+    from pulsar_nav.propagation.propagator import elfo_initial_coe_op, initial_state_mci_from_coe_op
+    from pulsar_nav.spice.ephemeris import mci_to_op_rotation, str_to_et
+
+    et0 = str_to_et("2026-01-15 12:00:00")
+    coe = elfo_initial_coe_op()
+    x_op = coe_to_cart(coe)
+    x_mci = initial_state_mci_from_coe_op(coe, et0)
+    rot = mci_to_op_rotation(et0)
+    np.testing.assert_allclose(rot @ x_mci, x_op, atol=1e-9)
+    np.testing.assert_allclose(rot.T @ x_op, x_mci, atol=1e-9)

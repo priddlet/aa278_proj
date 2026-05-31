@@ -15,10 +15,12 @@ def gnss_earth_visible(
     check_moon_occultation: bool = True,
 ) -> bool:
     """
-    GNSS sidelobe availability proxy: Earth above elevation mask and not occulted.
+    Geometric upper bound on sidelobe availability (Earth in view).
 
-    Far-side orbits have negative Earth elevation; near-side passes have
-    positive elevation when Earth is in view above the local lunar horizon.
+    True when Earth is above the local elevation mask and not Moon-occulted.
+    This does **not** imply trackable GPS pseudoranges: real sidelobe use also
+    needs Earth limb blocking of each satellite, antenna gain, and C/N₀ above
+    threshold. See ``visible_gps_prns`` for a tighter per-PRN sidelobe proxy.
     """
     if check_moon_occultation and moon_blocks_los(spacecraft_mci_km, earth_mci_km):
         return False

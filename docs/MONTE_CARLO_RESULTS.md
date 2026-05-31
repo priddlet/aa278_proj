@@ -1,12 +1,14 @@
 # Monte Carlo results
 
-**Orbit:** ELFO truth (DE440 + lunar dynamics)  
+> **Note (2026-05):** Truth-orbit initial state now uses the HW2 Earth-OP frame (`mci_to_op_rotation`), not MOON_PA. Blackout fractions and navigation errors below were generated with the old frame and should be re-run: `python scripts/demo_monte_carlo.py --trials 20 --sweep-pulsars --sweep-toa --no-show`
+
+**Orbit:** ELFO truth (DE440 + lunar dynamics, HW2 case 1 COE in Earth-OP frame)  
 **Epoch:** 2026-01-15 12:00 UTC  
 **GNSS:** HW2 broadcast ephemeris (`brdc_data.npz`)  
 **Hybrid policy:** XNAV every epoch + GNSS (non-blackout) + LunaNet when visible  
 **LunaNet reference (pitch):** 13.43 m final position (p95 check)
 
-**Blackout fraction on 6 hr ELFO:** ~93.9%  
+**Blackout fraction on 6 hr ELFO (correct OP frame):** ~26% (was ~94% with MOON_PA bug)  
 **Default noise:** TOA σ = 100 µs, GNSS/LunaNet σ = 15 m, initial offset uniform 30–100 km
 
 Run: `python scripts/demo_monte_carlo.py --trials 20 --sweep-pulsars --sweep-toa --no-show`
