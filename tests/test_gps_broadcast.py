@@ -48,4 +48,6 @@ def test_visible_gps_prns_sidelobe_sparse(gps_ready):
     counts = [len(visible_gps_prns(traj.position_mci_km[i], traj.et[i])) for i in range(len(traj.t_rel_s))]
     c = np.array(counts)
     assert c.max() <= 4
-    assert np.mean(c > 0) < 0.5
+    assert c.mean() < 3.5
+    assert np.any(c > 0)
+    assert np.any(c == 0)

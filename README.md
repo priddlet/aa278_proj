@@ -90,9 +90,9 @@ python scripts/validate_visibility_anchors.py --preset elfo --duration 30
 python scripts/demo_hybrid_elo.py --preset elfo --duration 6 --no-show
 
 # Monte Carlo: hybrid vs XNAV-only vs GNSS-only (Week 9)
-python scripts/demo_monte_carlo.py --preset elfo --duration 6 --trials 20 --no-show
-python scripts/demo_monte_carlo.py --quick --no-show
-python scripts/demo_monte_carlo.py --sweep-pulsars --sweep-toa --trials 20 --no-show
+# Defaults: 2× ELFO period (~26.4 hr), TOA σ = 1 µs
+python scripts/demo_monte_carlo.py --trials 20 --no-show
+python scripts/demo_monte_carlo.py --sweep-toa --trials 20 --no-show  # include 0.1 µs
 # Tables: docs/MONTE_CARLO_RESULTS.md
 
 pytest

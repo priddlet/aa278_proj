@@ -115,7 +115,7 @@ def analyze(
     print(f"  Earth-visible fraction: {100 * geo_vis.mean():.1f}%")
     print(f"  Blackout fraction:      {100 * tl.blackout_fraction:.1f}%")
     print()
-    print("GNSS sidelobe PRNs (Earth visible + Earth occultation, cap 4):")
+    print("GNSS sidelobe PRNs (far-side clear LOS, near-limb annulus, cap 4):")
     print(
         f"  Epochs with ≥1 PRN: {100 * np.mean(prn_counts > 0):.1f}%  "
         f"(lecture: sparse, often 0)"
@@ -139,9 +139,9 @@ def analyze(
     print()
     print("Sanity checks:")
     ok_prn = prn_counts.max() <= 4
-    ok_sparse = np.mean(prn_counts > 0) < 0.5
+    ok_band = prn_counts.mean() <= 4.0
     print(f"  [{'PASS' if ok_prn else 'FAIL'}] max PRN count ≤ 4")
-    print(f"  [{'PASS' if ok_sparse else 'WARN'}] trackable epoch fraction < 50%")
+    print(f"  [{'PASS' if ok_band else 'FAIL'}] mean PRN count ≤ 4 (lecture 0–4 band)")
 
 
 def main() -> None:

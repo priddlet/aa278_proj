@@ -18,6 +18,39 @@ from pulsar_nav.visibility.gnss import gnss_earth_visible
 
 DEFAULT_URE_M = 15.0  # HW2 typical URE (m)
 DEFAULT_MAX_GPS_PRNS = 4
+DEFAULT_MAX_LIMB_DEG = 6.0
+
+
+def gps_sidelobe_limb_deg(
+    spacecraft_mci_km: np.ndarray,
+    gps_mci_km: np.ndarray,
+    earth_mci_km: np.ndarray,
+    *,
+    max_limb_deg: float = DEFAULT_MAX_LIMB_DEG,
+) -> float | None:
+    """
+    Limb angle (deg) for a receivable sidelobe GPS candidate, or None if excluded.
+
+    Keeps clear SC→GPS lines on the far side of Earth (farther from SC than Earth)
+    within ``max_limb_deg`` of the Earth limb. Rejects occulted paths and near-side
+    satellites whose Earth-pointed beams do not illuminate the Moon.
+    """
+    from pulsar_nav.visibility.geometry import earth_limb_angle_deg
+
+    sc = np.asarray(spacecraft_mci_km, float)
+    r_gps = np.asarray(gps_mci_km, float)
+    r_earth = np.asarray(earth_mci_km, float)
+
+    if moon_blocks_los(sc, r_gps):
+        return None
+    if earth_occults_los(sc, r_gps, r_earth):
+        return None
+    if np.linalg.norm(r_gps - sc) <= np.linalg.norm(r_earth - sc):
+        return None
+    limb = earth_limb_angle_deg(sc, r_gps, r_earth)
+    if limb > max_limb_deg:
+        return None
+    return limb
 
 
 def visible_gps_prns(
@@ -30,13 +63,13 @@ def visible_gps_prns(
     earth_mci_km: np.ndarray | None = None,
     sidelobe_only: bool = True,
     max_prns: int | None = DEFAULT_MAX_GPS_PRNS,
+    max_limb_deg: float = DEFAULT_MAX_LIMB_DEG,
 ) -> list[int]:
     """
     PRNs usable for lunar sidelobe pseudorange synthesis at ``et``.
 
-    When ``sidelobe_only`` (default), requires Earth in view (same gate as
-    ``gnss_earth_visible``) and Earth occultation of the SC→GPS line — the
-    direct path is blocked and only sidelobe energy is assumed reachable.
+    When ``sidelobe_only`` (default), requires Earth in view and applies
+    ``gps_sidelobe_limb_deg`` (clear far-side LOS in the near-Earth annulus).
     Without that filter, every broadcast PRN above a local elevation mask can
     appear visible (~31 sats), which is far above the 0–4 trackable regime
     seen in LuGRE and Capuano-style studies.
@@ -63,11 +96,12 @@ def visible_gps_prns(
             r_gps, _ = get_gps_posclk_mci(et, prn, ephem)
         except (ValueError, KeyError):
             continue
-        if moon_blocks_los(sc, r_gps):
-            continue
-        if sidelobe_only and not earth_occults_los(sc, r_gps, r_earth):
-            continue
-        if not sidelobe_only:
+        if sidelobe_only:
+            limb = gps_sidelobe_limb_deg(sc, r_gps, r_earth, max_limb_deg=max_limb_deg)
+            if limb is None:
+                continue
+            visible.append((limb, prn))
+        else:
             from pulsar_nav.visibility.geometry import elevation_angle
 
             zenith = sc / np.linalg.norm(sc)
@@ -75,12 +109,6 @@ def visible_gps_prns(
             if el < np.deg2rad(min_elevation_deg):
                 continue
             visible.append((el, prn))
-        else:
-            # Prefer PRNs whose LOS grazes the Earth limb (smaller limb angle first).
-            from pulsar_nav.visibility.geometry import earth_limb_angle_deg
-
-            limb = earth_limb_angle_deg(sc, r_gps, r_earth)
-            visible.append((limb, prn))
 
     visible.sort()
     prns = [prn for _, prn in visible]

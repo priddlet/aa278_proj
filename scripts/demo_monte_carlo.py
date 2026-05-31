@@ -26,6 +26,7 @@ from pulsar_nav.simulation.monte_carlo_export import (
     MonteCarloExportBundle,
     export_monte_carlo_xlsx,
 )
+from pulsar_nav.constants import DEFAULT_MC_DURATION_S
 from pulsar_nav.simulation.policy import NavPolicy
 from pulsar_nav.spice.kernels import load_kernels
 
@@ -38,11 +39,21 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Run Monte Carlo for elfo (HW2 frozen) and elfo_nav (argp+180 deg OP phasing)",
     )
-    p.add_argument("--duration", type=float, default=6.0, help="Hours")
+    p.add_argument(
+        "--duration",
+        type=float,
+        default=None,
+        help="Hours (default: 2× ELFO period ≈26.4 hr)",
+    )
     p.add_argument("--step", type=float, default=120.0, help="Seconds")
     p.add_argument("--trials", type=int, default=20)
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--toa-us", type=float, default=100.0)
+    p.add_argument(
+        "--toa-us",
+        type=float,
+        default=1.0,
+        help="TOA 1-sigma in microseconds (default 1 µs → ~300 m range noise)",
+    )
     p.add_argument("--pulsars", type=int, default=None, help="MSP count (default: all 5)")
     p.add_argument("--quick", action="store_true", help="5 trials, skip sweeps")
     p.add_argument("--sweep-pulsars", action="store_true", help="Run 1/3/5 pulsar sweep")
@@ -64,6 +75,9 @@ def main() -> None:
     load_kernels(load_gps_frames=True)
 
     n_trials = 5 if args.quick else args.trials
+    duration_s = (
+        args.duration * 3600.0 if args.duration is not None else DEFAULT_MC_DURATION_S
+    )
     out_dir = Path(args.out_dir) if args.out_dir else ROOT / "figures"
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -78,7 +92,7 @@ def main() -> None:
         cfg = MonteCarloConfig(
             n_trials=n_trials,
             seed=args.seed,
-            duration_s=args.duration * 3600.0,
+            duration_s=duration_s,
             step_s=args.step,
             toa_sigma_s=args.toa_us * 1e-6,
             n_pulsars=args.pulsars,
@@ -99,7 +113,7 @@ def main() -> None:
             n_trials=n_trials,
             seed=args.seed,
             preset=args.preset,
-            duration_s=args.duration * 3600.0,
+            duration_s=duration_s,
             step_s=args.step,
             toa_sigma_s=args.toa_us * 1e-6,
             n_pulsars=args.pulsars,
@@ -141,7 +155,7 @@ def main() -> None:
     if args.sweep_toa and not args.quick:
         print("\nTOA noise sweep...")
         toa_sweep = run_toa_noise_sweep(
-            (50.0, 100.0, 200.0),
+            (0.1, 1.0, 10.0),
             base_config=MonteCarloConfig(
                 n_trials=n_trials,
                 seed=args.seed + 20,

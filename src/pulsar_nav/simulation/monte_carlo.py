@@ -9,7 +9,7 @@ import numpy as np
 
 from pulsar_nav.catalog import load_catalog
 from pulsar_nav.catalog.pulsar import Pulsar
-from pulsar_nav.constants import DEFAULT_TOA_SIGMA_S
+from pulsar_nav.constants import DEFAULT_TOA_SIGMA_S, DEFAULT_MC_DURATION_S
 from pulsar_nav.propagation.dynamics import DynamicsConfig
 from pulsar_nav.propagation.propagator import LunarPropagator, PropagatedTrajectory
 from pulsar_nav.simulation.hybrid_run import HybridRunResult, run_hybrid_ekf
@@ -38,7 +38,7 @@ class MonteCarloConfig:
     seed: int = 0
     preset: str = "elfo"
     epoch_utc: str = "2026-01-15T12:00:00"
-    duration_s: float = 6.0 * 3600.0
+    duration_s: float = DEFAULT_MC_DURATION_S
     step_s: float = 120.0
     position_offset_m: float = 50_000.0
     randomize_offset: bool = True

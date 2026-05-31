@@ -157,7 +157,7 @@ P \leftarrow (I-KH)P
 ### Visibility (`visibility/blackout.py`)
 
 - **Blackout (timeline):** `in_blackout = not gnss_earth_visible` — Earth below 5° elevation mask. This is a **geometric upper bound** on sidelobe availability (~40–75% on a 6 hr HW2 ELFO at the project epoch), not trackable PRN count.
-- **Trackable GPS (filter):** `visible_gps_prns` adds Earth occultation of each SC→GPS line (sidelobe geometry) and caps at 4 PRNs — expect **0–2 PRNs** most epochs, with genuine zero intervals. Does not model antenna gain or C/N₀; HW2 `gnss_measurements.pkl` is the course ground truth when available.
+- **Trackable GPS (filter):** `visible_gps_prns` / `gps_sidelobe_limb_deg`: clear far-side SC→GPS line (not Earth-occulted, GPS farther than Earth), near-limb annulus (~≤6°), cap 4 PRNs. Does not model antenna gain or C/N₀; HW2 `gnss_measurements.pkl` is the course ground truth when available.
 - **LunaNet:** Walker relays at 8000 km; default 16 sats. Lecture anchors ~40–55% GDOP < 6 for small relay sets — validate with `scripts/validate_visibility_anchors.py`.
 - **NavMode:** GNSS / HYBRID / LONET / XNAV from GNSS + LunaNet flags.
 - **NavPolicy** (`simulation/policy.py`): which sensors the filter *uses* (hybrid = XNAV always + GNSS/LunaNet when mode allows).

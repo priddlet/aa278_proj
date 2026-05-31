@@ -1,41 +1,54 @@
 # Monte Carlo results
 
-> **Note (2026-05):** Truth-orbit initial state now uses the HW2 Earth-OP frame (`mci_to_op_rotation`), not MOON_PA. Blackout fractions and navigation errors below were generated with the old frame and should be re-run: `python scripts/demo_monte_carlo.py --trials 20 --sweep-pulsars --sweep-toa --no-show`
-
-**Orbit:** ELFO truth (DE440 + lunar dynamics, HW2 case 1 COE in Earth-OP frame)  
-**Epoch:** 2026-01-15 12:00 UTC  
-**GNSS:** HW2 broadcast ephemeris (`brdc_data.npz`)  
+**Orbit:** ELFO truth (HW2 case 1, Earth-OP frame) · **Epoch:** 2026-01-15 12:00 UTC  
+**Arc:** 26.4 hr (2× orbital period, T ≈ 13.2 hr at a = 6541.4 km)  
+**GNSS:** broadcast ephemeris + corrected sidelobe gate (far-side clear LOS, limb annulus)  
 **Hybrid policy:** XNAV every epoch + GNSS (non-blackout) + LunaNet when visible  
-**LunaNet reference (pitch):** 13.43 m final position (p95 check)
+**Noise:** TOA σ = **1 µs** (~300 m range), GNSS/LunaNet σ = 15 m, offset uniform 30–100 km
 
-**Blackout fraction on 6 hr ELFO (correct OP frame):** ~26% (was ~94% with MOON_PA bug)  
-**Default noise:** TOA σ = 100 µs, GNSS/LunaNet σ = 15 m, initial offset uniform 30–100 km
+Run: `python scripts/demo_monte_carlo.py --trials 20 --no-show`
 
-Run: `python scripts/demo_monte_carlo.py --trials 20 --sweep-pulsars --sweep-toa --no-show`
+**Blackout fraction (26.4 hr):** ~64%  
+**LunaNet 13.43 m:** LCRNS steady-state relay target — not the bar for XNAV/hybrid at km-scale init; success = **graceful degradation** on the far side.
 
 ---
 
-## 1. Main campaign — three policies (20 trials)
+## Current campaign — three policies (20 trials, 26.4 hr, 1 µs TOA)
 
-Compares **hybrid**, **XNAV-only**, and **GNSS-only** on the same truth arc and random offsets.
-
-| Policy | Trials | Init offset | Final mean ± σ (km) | Final p95 (km) | Mean error (km) | RMS (km) | Blackout μ (km) | Non-blackout μ (km) | Meets 13.43 m p95? |
-|--------|--------|-------------|---------------------|----------------|-----------------|----------|-----------------|---------------------|--------------------|
-| **hybrid** | 20 | 30–100 km | 11.71 ± 5.01 | 20.03 | **7.67** | 9.95 | **7.70** | 7.13 | No |
-| **xnav_only** | 20 | 30–100 km | 10.13 ± 3.04 | 14.61 | 12.57 | 14.56 | 11.69 | 26.12 | No |
-| **gnss_only** | 20 | 30–100 km | 119.8 ± 1.49 | 122.13 | 89.2 | 94.97 | 94.28 | **10.70** | No |
+| Policy | Final mean (km) | Final p95 (km) | RMS (km) | Blackout μ (km) | Non-blackout μ (km) |
+|--------|-----------------|----------------|----------|-----------------|---------------------|
+| **hybrid** | **1.15** | 1.29 | **2.39** | **0.45** | **0.56** |
+| **xnav_only** | 2.42 | 2.64 | 2.48 | 0.53 | 0.97 |
+| **gnss_only** | 65.8 | 153.0 | 52.0 | 52.7 | **16.7** |
 
 **Takeaways**
 
-- **Hybrid has the lowest mean error over the arc** (7.7 km vs 12.6 km XNAV-only) because GNSS helps near-side while pulsars run always.
-- **XNAV-only can beat hybrid on final-error mean/p95** in this draw (10.1 vs 11.7 km final mean) — finals are dominated by long blackout; near-side GNSS is not always a better final constraint.
-- **GNSS-only fails in blackout** (~94% of arc): mean ~89 km, final ~120 km (coast with no measurements).
-- **Blackout segment:** hybrid **7.7 km** vs XNAV **11.7 km** vs GNSS **94.3 km**.
-- None meet the **13.43 m** LunaNet pitch target at km-scale initial errors.
+- **Hybrid beats XNAV-only** on final mean, RMS, and blackout segment in **20/20 trials** (was corrupted by inverted sidelobe gate + 100 µs TOA floor).
+- **GNSS split is correct:** non-blackout **16.7 km** vs blackout **52.7 km** (GNSS-only coasts with no measurements in blackout).
+- **Fusion headline:** hybrid non-blackout **0.56 km** vs XNAV **0.97 km** vs GNSS **16.7 km**; hybrid RMS **2.4 km** beats both components.
+- **XNAV periapsis gap** persists mildly (non-blackout 0.97 vs blackout 0.53 km) — CV predict vs e = 0.6 dynamics; two-body predict would flatten this.
+- **GNSS-only** still km-scale: sparse 0–4 sidelobe PRNs, poor DOP, 30–100 km init — not a 15 m steady-state fix.
+- Do **not** expect 13.43 m at these init errors; frame XNAV value as **far-side continuity** while GNSS-only blows up in blackout.
 
 ---
 
-## 2. Hybrid vs XNAV-only — fixed 50 km offset (20 trials, 4 hr)
+## Superseded — old campaign (6 hr, 100 µs TOA, pre-fix sidelobe)
+
+> Kept for history. Used wrong arc length (<0.5 orbit), 30 km TOA range floor, and inverted occultation gate.
+
+**Blackout on 6 hr (old):** ~94% (MOON_PA frame) → ~26% (OP frame, still undersampled)
+
+| Policy | Final mean (km) | RMS (km) | Blackout μ | Non-blackout μ |
+|--------|-----------------|----------|------------|----------------|
+| hybrid | 11.71 | 9.95 | 7.70 | 7.13 |
+| xnav_only | 10.13 | 14.56 | 11.69 | 26.12 |
+| gnss_only | 119.8 | 94.97 | 94.28 | 10.70 |
+
+Old table had **backwards GNSS split** (better in blackout) — signature of through-Earth satellites.
+
+---
+
+## Legacy sections (4 hr / sweep — pre-fix, stale numbers)
 
 Same offset every trial (matches sensitivity to a single deployment case).
 
