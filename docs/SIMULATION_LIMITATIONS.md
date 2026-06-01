@@ -56,12 +56,20 @@ Sweeps use a **common seed** across σ so each trial’s offset is the same when
 | Policy | Non-blackout | Blackout |
 |--------|--------------|----------|
 | `xnav_only` | Pulsars | Pulsars |
-| `gnss_only` | GNSS sidelobe PRNs (0 PRN → pulsar fallback) | Pulsars only |
+| `gnss_only` | GNSS sidelobe PRNs (0 PRN → pulsar fallback) | Pulsars + LunaNet if relay |
 | `hybrid` | **Fuse** GNSS + pulsars + LunaNet if relay | Pulsars + **supplemental LunaNet** if relay |
 
 LunaNet is **not** a fourth standalone phase. Plots label measured segments (`xnav + LunaNet supplemental (blackout)`), not geometric `NavMode.lonet`. Run `gnss_sidelobe_coverage_stats` to see how often non-blackout epochs have ≥4 trackable PRNs.
 
 `docs/MONTE_CARLO_RESULTS.md` sections marked **legacy / 6 hr / pre-switching** may not match current figures until regenerated.
+
+## Process noise (constant CWNA)
+
+Monte Carlo uses fixed **`process_noise_accel`** (default **1e-4 m²/s³**) on the CV position/velocity block — no periapsis scaling. Filter CV may show **NIS/df ≫ 1**; check with `python scripts/check_nis.py --filter-predict`. Do not treat **p95** as calibrated when NIS/df is far from 1.
+
+**`gnss_only`** under filter CV may still diverge in position (poor sidelobe geometry).
+
+Lead with **`filter_predict/`** for dynamics stress; **`truth_velocity/`** for optimistic trends.
 
 ## Stale figures
 

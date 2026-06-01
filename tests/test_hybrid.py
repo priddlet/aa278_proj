@@ -84,6 +84,38 @@ def test_hybrid_lonet_supplement_in_blackout_when_relay_visible(spice_loaded):
 
 
 @pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")
+def test_gnss_only_lonet_supplement_in_blackout_when_relay_visible(spice_loaded):
+    from pulsar_nav.catalog import load_catalog
+    from pulsar_nav.propagation.dynamics import DynamicsConfig
+    from pulsar_nav.propagation.propagator import LunarPropagator
+    from pulsar_nav.simulation.hybrid_run import run_hybrid_on_propagated
+    from pulsar_nav.simulation.policy import NavPolicy, PolicySegment
+    from pulsar_nav.spice.ephemeris import str_to_et
+    from pulsar_nav.visibility.blackout import compute_visibility_timeline
+
+    et0 = str_to_et("2026-01-15 12:00:00")
+    prop = LunarPropagator(et0, config=DynamicsConfig(), auto_load_kernels=False)
+    traj = prop.propagate_preset("elfo", duration_s=26.4 * 3600.0, step_s=120.0)
+    tl = compute_visibility_timeline(traj)
+    res = run_hybrid_on_propagated(
+        traj,
+        load_catalog(),
+        policy=NavPolicy.GNSS_ONLY,
+        timeline=tl,
+        rng=np.random.default_rng(2),
+    )
+    supplemental = [
+        log
+        for log in res.epoch_logs[1:]
+        if log.in_blackout and log.n_lonet > 0 and log.n_pulsar > 0
+    ]
+    assert supplemental, "GNSS-only should use LunaNet + pulsars in some blackout epochs"
+    assert all(
+        log.policy_segment == PolicySegment.XNAV_LONET_SUPPLEMENT for log in supplemental
+    )
+
+
+@pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")
 def test_hybrid_beats_xnav_only_on_elfo(spice_loaded):
     from pulsar_nav.catalog import load_catalog
     from pulsar_nav.propagation.dynamics import DynamicsConfig

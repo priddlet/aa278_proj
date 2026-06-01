@@ -96,6 +96,7 @@ python scripts/demo_monte_carlo.py --sweep-toa --trials 20 --no-show  # include 
 # Tables: docs/MONTE_CARLO_RESULTS.md  · policy pitch: docs/POLICY_COMPARISON.md
 # Far-side coast stress: python scripts/demo_monte_carlo.py --trials 20 --stress-coast --no-show
 # Hybrid non-blackout GNSS PDOP / PRN log: python scripts/log_hybrid_non_blackout_geometry.py
+# NIS/df diagnostic (constant Q): python scripts/check_nis.py --filter-predict
 
 # Presentation bundle: common/ + truth_velocity/ + filter_predict/ figures
 python scripts/build_presentation_assets.py          # see docs/PRESENTATION.md

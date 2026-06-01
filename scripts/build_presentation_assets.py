@@ -198,7 +198,14 @@ def build_common_figures(
         saved.append(name)
         print(f"  saved {name}")
 
-    _save(plot_visibility_timeline(vis_traj, vis_tl), f"{args.preset}_visibility_timeline.png")
+    _save(
+        plot_visibility_timeline(
+            vis_traj,
+            vis_tl,
+            title=f"{args.preset.upper()} visibility ({args.visibility_hr:.0f} hr)",
+        ),
+        f"{args.preset}_visibility_timeline.png",
+    )
 
     for pol in (NavPolicy.XNAV_ONLY, NavPolicy.GNSS_ONLY, NavPolicy.HYBRID):
         _save(
@@ -212,7 +219,7 @@ def build_common_figures(
 
     _save(
         plot_orbit_colored_by_blackout(
-            vis_traj, vis_tl, title=f"{args.preset.upper()} — orbit blackout 3D"
+            vis_traj, vis_tl, title=f"{args.preset.upper()} — GNSS blackout (3D)"
         ),
         f"{args.preset}_orbit_blackout_3d.png",
     )
@@ -223,7 +230,7 @@ def build_common_figures(
     fig_prop = plot_propagated_trajectory(
         vis_traj,
         preset=args.preset,
-        title=f"{args.preset.upper()} truth propagation ({args.visibility_hr:.0f} hr)",
+        title=f"{args.preset.upper()} truth orbit ({args.visibility_hr:.0f} hr)",
     )
     save_propagation_figure(fig_prop, common_dir / f"{args.preset}_truth_propagation.png", dpi=200)
     saved.append(f"{args.preset}_truth_propagation.png")
@@ -267,8 +274,6 @@ def build_nav_pipeline(
 
     nav_dir.mkdir(parents=True, exist_ok=True)
     saved: list[str] = []
-    predict_tag = "truth v predict" if pipeline.use_truth_velocity_predict else "filter CV predict"
-
     print(f"\n=== Navigation pipeline: {pipeline.label} ===")
     cfg = _mc_config(args, pipeline=pipeline, n_trials=n_mc, duration_s=duration_s)
 
@@ -283,14 +288,14 @@ def build_nav_pipeline(
     rep_runs, offset_m = run_representative_policy_runs(
         cfg, trial_id=0, traj=mc_traj, timeline=mc_tl
     )
-    offset_km = offset_m / 1000.0
+    from pulsar_nav.visualization.presentation_style import policy_display_name
+
     for policy, run in rep_runs.items():
         fig = plot_policy_error_propagation(
             run,
             mc_tl,
             policy=policy,
-            offset_km=offset_km,
-            title=f"{policy.value} — {predict_tag}",
+            title=f"{policy_display_name(policy)} — position error",
         )
         fname = f"mc_{args.preset}_{policy.value}_propagation.png"
         save_figure(fig, nav_dir / fname)
@@ -299,8 +304,7 @@ def build_nav_pipeline(
     fig_cmp = plot_all_policies_propagation(
         rep_runs,
         mc_tl,
-        offset_km=offset_km,
-        title=f"{args.preset.upper()} policies — {predict_tag}",
+        title="Policy comparison — position error",
     )
     save_figure(fig_cmp, nav_dir / f"mc_{args.preset}_all_policies_propagation.png")
     saved.append(f"mc_{args.preset}_all_policies_propagation.png")
@@ -314,7 +318,7 @@ def build_nav_pipeline(
             fig = plot_policy_error_envelope(
                 env,
                 mc_tl,
-                title=f"{policy.value} — {predict_tag} (n={n_env})",
+                title=f"{policy_display_name(policy)} — Monte Carlo mean",
             )
             fname = f"mc_{args.preset}_{policy.value}_envelope.png"
             save_figure(fig, nav_dir / fname)
@@ -323,7 +327,7 @@ def build_nav_pipeline(
             plot_all_policies_envelope(
                 envelopes,
                 mc_tl,
-                title=f"Mean error — {predict_tag}",
+                title="Monte Carlo mean — all policies",
             ),
             nav_dir / f"mc_{args.preset}_all_policies_envelope.png",
         )
@@ -348,7 +352,7 @@ def build_nav_pipeline(
     md_parts.append(_summary_markdown(result, preset=args.preset, pipeline=pipeline))
 
     for plot_fn, fname in [
-        (lambda: plot_final_error_boxplot(result, title=f"Final error — {predict_tag}"), f"mc_{args.preset}_boxplot.png"),
+        (lambda: plot_final_error_boxplot(result, title="Final position error"), f"mc_{args.preset}_boxplot.png"),
         (lambda: plot_policy_metrics_bars(result), f"mc_{args.preset}_policy_bars.png"),
         (lambda: plot_final_error_cdf(result), f"mc_{args.preset}_final_cdf.png"),
     ]:

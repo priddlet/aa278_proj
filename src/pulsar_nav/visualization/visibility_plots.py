@@ -18,6 +18,10 @@ from pulsar_nav.visibility.blackout import (
     VisibilityTimeline,
     timeline_arrays,
 )
+from pulsar_nav.visualization.presentation_style import (
+    policy_display_name,
+    segment_plot_label,
+)
 
 MODE_COLORS = {
     NavMode.GNSS.value: "#22c55e",
@@ -68,8 +72,7 @@ def plot_visibility_timeline(
     ax0.axhline(5.0, color="#f59e0b", lw=0.8, ls="--", label="GNSS mask (5°)")
     _shade_blackout(ax0, t_hr, arr["in_blackout"])
     ax0.set_ylabel("Earth elev. (deg)")
-    ax0.set_title("Earth elevation from spacecraft (GNSS sidelobe proxy)")
-    ax0.legend(loc="upper right", fontsize=8)
+    ax0.legend(loc="upper right", fontsize=9)
     ax0.grid(True, ls=":", alpha=0.5)
 
     # LunaNet + GNSS flags
@@ -78,8 +81,7 @@ def plot_visibility_timeline(
     ax1.fill_between(t_hr, 0, 0.5, where=arr["lonet_visible"], alpha=0.35, color="#a855f7", label="LunaNet")
     ax1.set_ylim(-0.05, 1.15)
     ax1.set_ylabel("visible")
-    ax1.set_title("Service availability flags")
-    ax1.legend(loc="upper right", fontsize=8)
+    ax1.legend(loc="upper right", fontsize=9)
     ax1.grid(True, ls=":", alpha=0.5)
 
     # Nav mode (numeric for color strip)
@@ -101,8 +103,7 @@ def plot_visibility_timeline(
     ax2.set_yticks(range(len(unique)))
     ax2.set_yticklabels([_mode_label(m) for m in unique])
     ax2.set_xlabel("time since epoch (hr)")
-    ax2.set_title("Geometry: which sources are visible (not MC policy)")
-    ax2.legend(loc="upper right", fontsize=8, ncol=len(unique))
+    ax2.legend(loc="upper right", fontsize=9, ncol=min(len(unique), 3))
     ax2.grid(True, ls=":", alpha=0.5)
 
     fig.tight_layout()
@@ -224,14 +225,14 @@ def plot_orbit_colored_by_policy(
             ".",
             ms=4,
             color=SEGMENT_COLORS.get(seg.value, "#333"),
-            label=seg.value,
+            label=segment_plot_label(seg),
         )
     _draw_moon_sphere(ax, alpha=0.2)
     ax.set_xlabel("x (km)")
     ax.set_ylabel("y (km)")
     ax.set_zlabel("z (km)")
-    ax.set_title(title or f"ELFO — active measurements ({policy.value})")
-    ax.legend(fontsize=7, loc="upper left")
+    ax.set_title(title or f"ELFO orbit — {policy_display_name(policy)}")
+    ax.legend(fontsize=9, loc="upper left")
     _set_equal_3d(ax, pos)
     fig.tight_layout()
     return fig
@@ -259,14 +260,14 @@ def plot_policy_segment_timeline(
             y[mask],
             c=SEGMENT_COLORS.get(seg.value, "#333"),
             s=14,
-            label=seg.value,
+            label=segment_plot_label(seg),
         )
     _shade_blackout(ax, t_hr, [s.in_blackout for s in timeline.samples], alpha=0.08)
     ax.set_yticks(range(len(unique)))
-    ax.set_yticklabels([s.value for s in unique], fontsize=8)
+    ax.set_yticklabels([segment_plot_label(s) for s in unique], fontsize=9)
     ax.set_xlabel("time since epoch (hr)")
-    ax.set_title(title or f"Filter segments — {policy.value}")
-    ax.legend(loc="upper right", fontsize=7, ncol=2)
+    ax.set_title(title or f"Planned segments — {policy_display_name(policy)}")
+    ax.legend(loc="upper right", fontsize=8, ncol=2, frameon=True)
     ax.grid(True, ls=":", alpha=0.4)
     fig.tight_layout()
     return fig

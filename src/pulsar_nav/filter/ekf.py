@@ -12,6 +12,7 @@ from pulsar_nav.measurements.pseudorange import (
     pseudorange_jacobian_m,
     pseudorange_residual,
 )
+from pulsar_nav.filter.consistency import normalized_innovation_squared
 from pulsar_nav.measurements.xnav import (
     XNAVMeasurement,
     measurement_jacobian,
@@ -48,7 +49,11 @@ class PulsarNavEKF:
     process_noise_accel: float = 1e-6  # m^2/s^3 (tunable)
     process_noise_clock: float = 1.0  # m^2/s (clock random walk)
 
+    last_nis: float = float("nan")
+    last_dof: int = 0
+
     _history: list[NavState] = field(default_factory=list, repr=False)
+    nis_history: list[tuple[float, int]] = field(default_factory=list, repr=False)
 
     def __post_init__(self) -> None:
         if self.covariance.shape != (NAV_STATE_DIM, NAV_STATE_DIM):
@@ -98,6 +103,13 @@ class PulsarNavEKF:
         Q[idx_clock_bias, idx_clock_bias] = q_c * dt_s**2
         Q[idx_clock_drift, idx_clock_drift] = q_c * dt_s
         return Q
+
+    def _record_nis(self, y: np.ndarray, S: np.ndarray) -> None:
+        """Store NIS = y^T S^{-1} y; target median(NIS/dof) ~ 1 when consistent."""
+        y = np.asarray(y, float).ravel()
+        self.last_nis = normalized_innovation_squared(y, S)
+        self.last_dof = int(y.size)
+        self.nis_history.append((self.last_nis, self.last_dof))
 
     def predict(self, dt_s: float) -> None:
         Phi = self.state_transition(dt_s)
@@ -158,11 +170,27 @@ class PulsarNavEKF:
         )
         R = np.diag([m.sigma_m**2 for m in measurements])
         S = H @ self.covariance @ H.T + R
+        self._record_nis(y, S)
         K = self.covariance @ H.T @ np.linalg.inv(S)
         self.state = NavState(self.state.vector + (K @ y).ravel())
         I = np.eye(NAV_STATE_DIM)
         self.covariance = (I - K @ H) @ self.covariance
         return [float(v) for v in y]
+
+    def _stacked_measurement_update(
+        self,
+        H: np.ndarray,
+        y_vec: np.ndarray,
+        R: np.ndarray,
+    ) -> list[float]:
+        """Apply one stacked update; return innovations (NIS via ``last_nis``)."""
+        S = H @ self.covariance @ H.T + R
+        self._record_nis(y_vec, S)
+        K = self.covariance @ H.T @ np.linalg.inv(S)
+        self.state = NavState(self.state.vector + (K @ y_vec).ravel())
+        I = np.eye(NAV_STATE_DIM)
+        self.covariance = (I - K @ H) @ self.covariance
+        return [float(v) for v in y_vec]
 
     def update_navigation_epoch(
         self,
@@ -175,8 +203,7 @@ class PulsarNavEKF:
         """
         Single stacked EKF update for pulsars + pseudoranges at one epoch.
 
-        Fusing in one update avoids sequential over-weighting and uses all
-        independent measurements (extra DOF from GNSS/LunaNet) jointly.
+        Sets ``last_nis`` / ``last_dof`` (chi-squared with df = # measurements).
         """
         if not xnav_measurements and not pseudorange_measurements:
             return []
@@ -207,12 +234,7 @@ class PulsarNavEKF:
         H = np.vstack(rows)
         y_vec = np.array(y)
         R = np.diag(r_var)
-        S = H @ self.covariance @ H.T + R
-        K = self.covariance @ H.T @ np.linalg.inv(S)
-        self.state = NavState(self.state.vector + (K @ y_vec).ravel())
-        I = np.eye(NAV_STATE_DIM)
-        self.covariance = (I - K @ H) @ self.covariance
-        return [float(v) for v in y_vec]
+        return self._stacked_measurement_update(H, y_vec, R)
 
     def update_epoch(self, measurements: list[XNAVMeasurement]) -> list[float]:
         """
@@ -228,6 +250,7 @@ class PulsarNavEKF:
         y = np.array([range_residual(m, self.state) for m in measurements])
         R = np.diag([m.sigma_m**2 for m in measurements])
         S = H @ self.covariance @ H.T + R
+        self._record_nis(y, S)
         K = self.covariance @ H.T @ np.linalg.inv(S)
         self.state = NavState(self.state.vector + (K @ y).ravel())
         I = np.eye(NAV_STATE_DIM)

@@ -160,7 +160,7 @@ P \leftarrow (I-KH)P
 - **Trackable GPS (filter):** `visible_gps_prns` / `gps_sidelobe_limb_deg`: clear far-side SC→GPS line (not Earth-occulted, GPS farther than Earth), near-limb annulus (~≤6°), cap 4 PRNs. Does not model antenna gain or C/N₀; HW2 `gnss_measurements.pkl` is the course ground truth when available.
 - **LunaNet:** Walker relays at 8000 km; default 16 sats. Lecture anchors ~40–55% GDOP < 6 for small relay sets — validate with `scripts/validate_visibility_anchors.py`.
 - **NavMode:** geometric GNSS / relay flags only (can show `lonet` during blackout); **not** what the filter applied.
-- **NavPolicy** (`simulation/policy.py`): three phases — `xnav_only`; `gnss_only` (GNSS sidelobe PRNs when not in blackout, pulsars in blackout); `hybrid` (**non-blackout fuses** GNSS + all MSPs + LunaNet if relay; **blackout = pulsars + supplemental LunaNet** if relay visible). `gnss_only` uses pulsar fallback only at 0 PRNs. `HybridEpochLog.gnss_pdop` logs sidelobe geometry; `scripts/log_hybrid_non_blackout_geometry.py` summarizes PRN count / PDOP.
+- **NavPolicy** (`simulation/policy.py`): three phases — `xnav_only`; `gnss_only`; `hybrid` (**non-blackout fuses** GNSS + all MSPs + LunaNet if relay). EKF uses constant **CWNA** `process_noise_accel` (tunable in `MonteCarloConfig`). `HybridRunResult` exposes per-epoch `nis` / `nis_dof` for consistency checks (`scripts/check_nis.py`).
 - **PolicySegment / plots:** strip and MC shading use `segment_from_measurements` (actual EKF inputs), not `NavMode`.
 
 ---

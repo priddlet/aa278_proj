@@ -8,6 +8,7 @@ import numpy as np
 
 from pulsar_nav.simulation.hybrid_run import HybridRunResult
 from pulsar_nav.simulation.policy import SEGMENT_COLORS
+from pulsar_nav.visualization.presentation_style import segment_plot_label
 from pulsar_nav.visibility.blackout import VisibilityTimeline
 
 
@@ -35,10 +36,10 @@ def _plot_segment_strip(ax, t_hr: np.ndarray, segment_values: np.ndarray) -> Non
             y[mask],
             c=SEGMENT_COLORS.get(seg, "#999"),
             s=14,
-            label=seg,
+            label=segment_plot_label(seg),
         )
     ax.set_yticks(range(len(unique)))
-    ax.set_yticklabels(unique, fontsize=7)
+    ax.set_yticklabels([segment_plot_label(s) for s in unique], fontsize=8)
     ax.set_ylim(-0.5, len(unique) - 0.5)
 
 
@@ -53,8 +54,8 @@ def plot_hybrid_comparison(
     """
     Error time series plus strip of **filter segments applied** (not geometric NavMode).
 
-    Purple in the geometric timeline only meant relay geometry; it did not imply
-    LunaNet measurements during blackout before the hybrid policy fix.
+    Segment colors reflect measurements applied by the filter (including
+    MSP + LunaNet blackout supplement when a relay is visible).
     """
     plt = _require_matplotlib()
     fig, axes = plt.subplots(2, 1, figsize=(11, 7), sharex=True, height_ratios=[2, 1])
@@ -78,19 +79,17 @@ def plot_hybrid_comparison(
 
     if use_measured_segments and len(hybrid.policy_segments) == len(t_hr):
         seg_vals = hybrid.policy_segments
-        strip_label = "filter segment applied (hybrid run)"
     else:
         from pulsar_nav.simulation.policy import planned_segment
 
         seg_vals = np.array(
             [planned_segment(hybrid.policy, s).value for s in timeline.samples]
         )
-        strip_label = "planned segment (hybrid policy)"
 
     _plot_segment_strip(axes[1], t_hr, seg_vals)
     axes[1].set_xlabel("time since epoch (hr)")
-    axes[1].set_ylabel(strip_label)
-    axes[1].legend(loc="upper right", fontsize=7, ncol=1)
+    axes[1].set_ylabel("measurement segment")
+    axes[1].legend(loc="upper right", fontsize=8, ncol=2, frameon=True)
     fig.tight_layout()
     return fig
 

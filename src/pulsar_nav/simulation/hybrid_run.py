@@ -35,6 +35,8 @@ class HybridEpochLog:
     n_pulsar: int
     in_blackout: bool
     gnss_pdop: float = float("nan")
+    nis: float = float("nan")
+    n_meas: int = 0
 
 
 @dataclass
@@ -50,6 +52,8 @@ class HybridRunResult:
     epoch_logs: list[HybridEpochLog]
     pulsar_names: list[str]
     policy: NavPolicy
+    nis: np.ndarray | None = None
+    nis_dof: np.ndarray | None = None
 
     @property
     def final_position_error_m(self) -> float:
@@ -152,12 +156,14 @@ def measurements_for_epoch(
     Return (gnss_meas, lonet_meas, xnav_meas) for this epoch.
 
     Three primary phases (``NavPolicy``), with **LunaNet supplemental** when
-    ``sample.lonet_visible`` in hybrid blackout — not a separate fourth phase.
+    ``sample.lonet_visible`` during blackout (all policies except ``GNSS_COAST``).
 
     - ``XNAV_ONLY``: pulsars every epoch.
-    - ``GNSS_ONLY``: GNSS sidelobe PRNs when not in blackout; pulsars in blackout.
+    - ``GNSS_ONLY``: GNSS sidelobe PRNs when not in blackout; pulsars in blackout
+      (+ supplemental LunaNet when relay visible).
     - ``HYBRID``: non-blackout **fuses** GNSS (+ LunaNet if relay) with pulsars;
-      blackout uses pulsars + supplemental LunaNet if relay visible.
+      blackout uses pulsars + supplemental LunaNet when relay visible.
+    - ``XNAV_ONLY``: pulsars every epoch; supplemental LunaNet in blackout when relay visible.
     - If a non-blackout epoch has 0 trackable PRNs, fall back to pulsars
       (``xnav_fallback_on_empty_gnss``).
     """
@@ -166,13 +172,8 @@ def measurements_for_epoch(
     lonet: list = []
 
     if policy == NavPolicy.XNAV_ONLY:
-        return [], [], _xnav_measurements(pulsars, truth_position_m, rng, toa_sigma_s)
-
-    if sample.in_blackout:
-        if policy == NavPolicy.GNSS_COAST:
-            return gnss, lonet, xnav
         xnav = _xnav_measurements(pulsars, truth_position_m, rng, toa_sigma_s)
-        if policy == NavPolicy.HYBRID:
+        if sample.in_blackout:
             lonet = _lonet_if_visible(
                 sample,
                 truth_position_m=truth_position_m,
@@ -183,6 +184,22 @@ def measurements_for_epoch(
                 lonet_sigma_m=lonet_sigma_m,
                 lonet_config=lonet_config,
             )
+        return gnss, lonet, xnav
+
+    if sample.in_blackout:
+        if policy == NavPolicy.GNSS_COAST:
+            return gnss, lonet, xnav
+        xnav = _xnav_measurements(pulsars, truth_position_m, rng, toa_sigma_s)
+        lonet = _lonet_if_visible(
+            sample,
+            truth_position_m=truth_position_m,
+            relay_pos_km=relay_pos_km,
+            et=et,
+            et0=et0,
+            rng=rng,
+            lonet_sigma_m=lonet_sigma_m,
+            lonet_config=lonet_config,
+        )
         return gnss, lonet, xnav
 
     # Non-blackout: geometric GNSS window (sidelobe PRNs may still be 0)
@@ -297,6 +314,8 @@ def run_hybrid_ekf(
     truth_vel = traj.velocity_icrs_m_s.copy()
     est_pos = np.zeros((n, 3))
     pos_err = np.zeros(n)
+    nis_arr = np.full(n, np.nan)
+    dof_arr = np.zeros(n, dtype=int)
     modes = np.array([s.nav_mode.value for s in timeline.samples], dtype=object)
     segments = np.empty(n, dtype=object)
     logs: list[HybridEpochLog] = []
@@ -306,6 +325,8 @@ def run_hybrid_ekf(
         gnss: list = []
         lonet: list = []
         xnav: list = []
+        nis = float("nan")
+        n_meas = 0
 
         if i > 0:
             dt = float(traj.t_rel_s[i] - traj.t_rel_s[i - 1])
@@ -340,6 +361,10 @@ def run_hybrid_ekf(
                     traj.et[i],
                     et0=traj.et0,
                 )
+                nis = ekf.last_nis
+                n_meas = ekf.last_dof
+                nis_arr[i] = nis
+                dof_arr[i] = n_meas
 
         est_pos[i] = ekf.state.position_m
         pos_err[i] = np.linalg.norm(est_pos[i] - truth_pos[i])
@@ -368,6 +393,8 @@ def run_hybrid_ekf(
                 n_pulsar=len(xnav),
                 in_blackout=sample.in_blackout,
                 gnss_pdop=gnss_pdop,
+                nis=nis,
+                n_meas=n_meas,
             )
         )
 
@@ -381,6 +408,8 @@ def run_hybrid_ekf(
         epoch_logs=logs,
         pulsar_names=[p.name for p in pulsars],
         policy=policy,
+        nis=nis_arr,
+        nis_dof=dof_arr,
     )
 
 
@@ -419,7 +448,7 @@ def run_xnav_only_on_propagated(
     pulsars: list[Pulsar],
     **kwargs,
 ) -> HybridRunResult:
-    """XNAV-only baseline (no GNSS / LunaNet)."""
+    """XNAV-only baseline (no GNSS; LunaNet supplement in blackout when relay visible)."""
     kwargs.pop("policy", None)
     return run_hybrid_on_propagated(
         traj, pulsars, policy=NavPolicy.XNAV_ONLY, **kwargs

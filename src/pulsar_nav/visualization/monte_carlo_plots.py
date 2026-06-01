@@ -11,6 +11,7 @@ from pulsar_nav.simulation.monte_carlo import LUNANET_REQUIREMENT_M, MonteCarloR
 from pulsar_nav.simulation.policy import SEGMENT_COLORS, NavPolicy, planned_segment
 from pulsar_nav.simulation.presentation_runs import PolicyErrorEnvelope
 from pulsar_nav.visibility.blackout import VisibilityTimeline
+from pulsar_nav.visualization.presentation_style import policy_display_name
 
 
 def _require_matplotlib():
@@ -48,7 +49,7 @@ def plot_final_error_boxplot(result: MonteCarloResult, *, title: str | None = No
             if t.policy == pol
         ]
         data.append(errs)
-        labels.append(pol.value)
+        labels.append(policy_display_name(pol))
 
     bp = ax.boxplot(data, tick_labels=labels, patch_artist=True)
     for patch, pol in zip(bp["boxes"], policies):
@@ -59,10 +60,10 @@ def plot_final_error_boxplot(result: MonteCarloResult, *, title: str | None = No
         color="#f59e0b",
         ls="--",
         lw=1.0,
-        label=f"LunaNet ref ({LUNANET_REQUIREMENT_M:.2f} m)",
+        label="LunaNet 13.43 m",
     )
     ax.set_ylabel("final position error (km)")
-    ax.set_title(title or "Monte Carlo — final position error")
+    ax.set_title(title or "Final position error")
     ax.legend(loc="upper right")
     ax.grid(True, axis="y", ls=":", alpha=0.5)
     fig.tight_layout()
@@ -88,7 +89,7 @@ def plot_pulsar_count_sweep(
     ax.axhline(LUNANET_REQUIREMENT_M / 1e3, color="#f59e0b", ls=":", label="LunaNet 13.43 m")
     ax.set_xlabel("number of pulsars")
     ax.set_ylabel("error (km)")
-    ax.set_title(title or f"Pulsar count sweep — {policy.value}")
+    ax.set_title(title or f"Pulsar count — {policy_display_name(policy)}")
     ax.legend()
     ax.grid(True, ls=":", alpha=0.5)
     fig.tight_layout()
@@ -111,9 +112,9 @@ def plot_policy_metrics_bars(result: MonteCarloResult, *, title: str | None = No
     ax.bar(x, blk, width, label="blackout segment μ", color="#ef4444")
     ax.bar(x + width, non_blk, width, label="non-blackout μ", color="#22c55e")
     ax.set_xticks(x)
-    ax.set_xticklabels([p.value for p in policies])
+    ax.set_xticklabels([policy_display_name(p) for p in policies])
     ax.set_ylabel("position error (km)")
-    ax.set_title(title or "Policy comparison — segment errors")
+    ax.set_title(title or "Mean error by segment")
     ax.legend()
     ax.grid(True, axis="y", ls=":", alpha=0.5)
     fig.tight_layout()
@@ -142,14 +143,14 @@ def plot_toa_noise_sweep(
             sigmas_us,
             means,
             "o-",
-            label=pol.value,
+            label=policy_display_name(pol),
             color=POLICY_COLORS.get(pol, None),
             lw=1.5,
         )
     ax.set_xscale("log")
     ax.set_xlabel("TOA 1σ (µs)")
     ax.set_ylabel("final position error mean (km)")
-    ax.set_title(title or "TOA noise sensitivity")
+    ax.set_title(title or "TOA noise sweep")
     ax.legend()
     ax.grid(True, ls=":", alpha=0.5)
     fig.tight_layout()
@@ -173,7 +174,7 @@ def plot_pulsar_sweep_comparison(
             counts,
             means,
             marker,
-            label=pol.value,
+            label=policy_display_name(pol),
             color=POLICY_COLORS.get(pol, "#333"),
             lw=1.5,
         )
@@ -215,6 +216,12 @@ def _shade_policy_segments(
             start_i = i
 
 
+def _blackout_legend_handle(plt):
+    from matplotlib.patches import Patch
+
+    return Patch(facecolor="#ef4444", alpha=0.25, label="GNSS blackout")
+
+
 def plot_policy_error_propagation(
     run: HybridRunResult,
     timeline: VisibilityTimeline,
@@ -228,19 +235,16 @@ def plot_policy_error_propagation(
     fig, ax = plt.subplots(figsize=(11, 4.5))
     t_hr = run.t_s / 3600.0
     color = POLICY_COLORS.get(policy, "#333")
-    ax.plot(t_hr, run.position_error_m / 1e3, lw=1.3, color=color, label=policy.value)
+    ax.plot(t_hr, run.position_error_m / 1e3, lw=1.3, color=color)
     _shade_policy_segments(ax, t_hr, timeline, policy, run=run)
     ax.set_xlabel("time since epoch (hr)")
     ax.set_ylabel("position error (km)")
-    subtitle = f"init offset {offset_km:.1f} km" if offset_km is not None else ""
-    ax.set_title(title or f"Navigation error — {policy.value}  {subtitle}".strip())
+    ax.set_title(title or f"{policy_display_name(policy)} — position error")
     ax.grid(True, ls=":", alpha=0.5)
-    from matplotlib.patches import Patch
-
     ax.legend(
         handles=[
-            plt.Line2D([0], [0], color=color, lw=1.3, label=policy.value),
-            Patch(facecolor="#ef4444", alpha=0.25, label="GNSS blackout"),
+            plt.Line2D([0], [0], color=color, lw=1.3, label=policy_display_name(policy)),
+            _blackout_legend_handle(plt),
         ],
         loc="upper right",
     )
@@ -252,7 +256,7 @@ def plot_all_policies_propagation(
     runs: dict[NavPolicy, HybridRunResult],
     timeline: VisibilityTimeline,
     *,
-    title: str = "Policy comparison — representative trial",
+    title: str | None = "Policy comparison — position error",
     offset_km: float | None = None,
 ):
     """Overlay position error for hybrid, XNAV-only, and GNSS-only."""
@@ -265,16 +269,15 @@ def plot_all_policies_propagation(
             t_pol,
             run.position_error_m / 1e3,
             lw=1.2,
-            label=policy.value,
+            label=policy_display_name(policy),
             color=POLICY_COLORS.get(policy, "#333"),
         )
     _shade_policy_segments(ax, t_hr, timeline, NavPolicy.GNSS_ONLY)
     ax.set_xlabel("time since epoch (hr)")
     ax.set_ylabel("position error (km)")
-    if offset_km is not None:
-        title = f"{title}  (offset {offset_km:.1f} km)"
-    ax.set_title(title)
-    ax.legend(loc="upper right")
+    ax.set_title(title or "Policy comparison — position error")
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles=handles + [_blackout_legend_handle(plt)], loc="upper right")
     ax.grid(True, ls=":", alpha=0.5)
     fig.tight_layout()
     return fig
@@ -303,13 +306,12 @@ def plot_policy_error_envelope(
     p5_km = envelope.p5_m / 1e3
     p95_km = envelope.p95_m / 1e3
     _shade_policy_segments(ax, t_hr, timeline, envelope.policy)
-    ax.fill_between(t_hr, p5_km, p95_km, color=color, alpha=0.2, label="p5–p95 across trials")
-    ax.plot(t_hr, mean_km, lw=1.4, color=color, label="mean across trials")
+    ax.fill_between(t_hr, p5_km, p95_km, color=color, alpha=0.2)
+    ax.plot(t_hr, mean_km, lw=1.4, color=color)
     ax.set_xlabel("time since epoch (hr)")
     ax.set_ylabel("position error (km)")
     ax.set_title(
-        title
-        or f"{envelope.policy.value} — {envelope.n_trials}-trial Monte Carlo envelope"
+        title or f"{policy_display_name(envelope.policy)} — Monte Carlo mean"
     )
     ymax = float(np.nanmax(p95_km) * 1.05)
     if ymin_km is None:
@@ -318,18 +320,14 @@ def plot_policy_error_envelope(
         floor = max(0.0, float(np.nanpercentile(post, 5)) * 0.5) if post.size else 0.0
         ymin_km = min(floor, ymax * 0.05)
     ax.set_ylim(bottom=ymin_km, top=max(ymax, ymin_km + 0.5))
-    ax.axhline(0.0, color="k", lw=0.4, alpha=0.3)
-    blk = np.array([s.in_blackout for s in timeline.samples])
-    if np.any(blk) and envelope.policy != NavPolicy.XNAV_ONLY:
-        ax.text(
-            0.01,
-            0.02,
-            "Red tint = blackout (XNAV segment; mean typically 0.2–0.7 km, not 0)",
-            transform=ax.transAxes,
-            fontsize=8,
-            color="#444",
-        )
-    ax.legend(loc="upper right")
+    ax.legend(
+        handles=[
+            plt.Line2D([0], [0], color=color, lw=1.4, label="mean"),
+            plt.Rectangle((0, 0), 1, 1, fc=color, alpha=0.2, label="p5–p95"),
+            _blackout_legend_handle(plt),
+        ],
+        loc="upper right",
+    )
     ax.grid(True, ls=":", alpha=0.5)
     fig.tight_layout()
     return fig
@@ -339,7 +337,7 @@ def plot_all_policies_envelope(
     envelopes: dict[NavPolicy, PolicyErrorEnvelope],
     timeline: VisibilityTimeline,
     *,
-    title: str = "Monte Carlo mean error — all policies",
+    title: str | None = "Monte Carlo mean — all policies",
 ):
     """Compare mean error envelopes on one axes."""
     plt = _require_matplotlib()
@@ -351,7 +349,7 @@ def plot_all_policies_envelope(
             env.t_s / 3600.0,
             env.mean_m / 1e3,
             lw=1.3,
-            label=policy.value,
+            label=policy_display_name(policy),
             color=POLICY_COLORS.get(policy, "#333"),
         )
     ax.set_xlabel("time since epoch (hr)")
@@ -359,7 +357,7 @@ def plot_all_policies_envelope(
     p95_all = [env.p95_m / 1e3 for env in envelopes.values()]
     ymax = max(float(np.nanmax(p95_all)) * 1.05, 1.0)
     ax.set_ylim(bottom=0.0, top=ymax)
-    ax.set_title(f"{title}  (n={n_trials} trials)")
+    ax.set_title(title or "Monte Carlo mean — all policies")
     ax.legend(loc="upper right")
     ax.grid(True, ls=":", alpha=0.5)
     fig.tight_layout()
@@ -377,10 +375,10 @@ def plot_final_error_cdf(result: MonteCarloResult, *, title: str | None = None):
         if not errs:
             continue
         y = np.linspace(1.0 / len(errs), 1.0, len(errs))
-        ax.plot(errs, y, lw=1.5, label=pol.value, color=POLICY_COLORS.get(pol, "#333"))
+        ax.plot(errs, y, lw=1.5, label=policy_display_name(pol), color=POLICY_COLORS.get(pol, "#333"))
     ax.set_xlabel("final position error (km)")
     ax.set_ylabel("empirical CDF")
-    ax.set_title(title or "Monte Carlo — final error CDF")
+    ax.set_title(title or "Final error CDF")
     ax.legend()
     ax.grid(True, ls=":", alpha=0.5)
     fig.tight_layout()
@@ -401,7 +399,14 @@ def plot_trial_final_scatter(result: MonteCarloResult, *, title: str | None = No
     if hybrid in result.config.policies and xnav in result.config.policies:
         hx = [by_trial[i][hybrid] for i in sorted(by_trial) if hybrid in by_trial[i] and xnav in by_trial[i]]
         xy = [by_trial[i][xnav] for i in sorted(by_trial) if hybrid in by_trial[i] and xnav in by_trial[i]]
-        ax.scatter(xy, hx, c=POLICY_COLORS[hybrid], s=40, alpha=0.75, label="hybrid vs XNAV")
+        ax.scatter(
+            xy,
+            hx,
+            c=POLICY_COLORS[hybrid],
+            s=40,
+            alpha=0.75,
+            label=f"{policy_display_name(hybrid)} vs {policy_display_name(xnav)}",
+        )
         lim = max(max(hx + xy, default=1), 1)
         ax.plot([0, lim], [0, lim], "k--", lw=0.8, alpha=0.5)
         ax.set_xlabel("XNAV-only final error (km)")
@@ -416,16 +421,9 @@ def plot_trial_final_scatter(result: MonteCarloResult, *, title: str | None = No
 
 def apply_presentation_style() -> None:
     """Larger fonts and line weights for slide export."""
-    plt = _require_matplotlib()
-    plt.rcParams.update(
-        {
-            "font.size": 12,
-            "axes.titlesize": 13,
-            "axes.labelsize": 12,
-            "legend.fontsize": 10,
-            "lines.linewidth": 1.5,
-        }
-    )
+    from pulsar_nav.visualization.presentation_style import apply_presentation_style as _apply
+
+    _apply()
 
 
 def save_figure(fig, path: str | Path, dpi: int = 200) -> Path:

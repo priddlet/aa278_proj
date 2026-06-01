@@ -57,6 +57,11 @@ def _config_rows(config: MonteCarloConfig, *, campaign: str, blackout_fraction: 
             "parameter": "use_truth_velocity_predict",
             "value": config.use_truth_velocity_predict,
         },
+        {
+            "campaign": campaign,
+            "parameter": "process_noise_accel",
+            "value": config.process_noise_accel,
+        },
         {"campaign": campaign, "parameter": "lunanet_requirement_m", "value": LUNANET_REQUIREMENT_M},
     ]
     if blackout_fraction is not None:

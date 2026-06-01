@@ -105,7 +105,7 @@ def test_planned_and_measured_segments():
     assert segment_from_measurements(
         NavPolicy.HYBRID, blk, n_gnss=0, n_lonet=2, n_pulsar=5
     ) == PolicySegment.XNAV_LONET_SUPPLEMENT
-    assert planned_segment(NavPolicy.GNSS_ONLY, blk) == PolicySegment.XNAV_BLACKOUT
+    assert planned_segment(NavPolicy.GNSS_ONLY, blk) == PolicySegment.XNAV_LONET_SUPPLEMENT
     assert segment_from_measurements(
         NavPolicy.GNSS_ONLY, vis, n_gnss=0, n_lonet=0, n_pulsar=5
     ) == PolicySegment.GNSS_XNAV_FALLBACK

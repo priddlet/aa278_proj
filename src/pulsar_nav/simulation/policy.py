@@ -19,10 +19,10 @@ class NavPolicy(str, Enum):
     """
 
     XNAV_ONLY = "xnav_only"
-    """Pulsars every epoch for the whole orbit."""
+    """Pulsars every epoch; supplemental LunaNet in blackout when relay visible."""
 
     GNSS_ONLY = "gnss_only"
-    """GNSS when trackable and not in blackout; pulsars in blackout (no LunaNet)."""
+    """GNSS when trackable and not in blackout; pulsars + LunaNet in blackout when relay visible."""
 
     HYBRID = "hybrid"
     """
@@ -110,7 +110,7 @@ def planned_segment(policy: NavPolicy, sample: VisibilitySample) -> PolicySegmen
     if sample.in_blackout:
         if policy == NavPolicy.GNSS_COAST:
             return PolicySegment.COAST
-        if policy == NavPolicy.HYBRID and sample.lonet_visible:
+        if sample.lonet_visible:
             return PolicySegment.XNAV_LONET_SUPPLEMENT
         return PolicySegment.XNAV_BLACKOUT
 

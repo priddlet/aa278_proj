@@ -63,7 +63,7 @@ python scripts/demo_monte_carlo.py --trials 20 --no-truth-velocity --no-show
 | Policy | GNSS visible | Blackout |
 |--------|--------------|----------|
 | `xnav_only` | Pulsars | Pulsars |
-| `gnss_only` | GNSS (0 PRN → pulsar fallback) | Pulsars only (no LunaNet) |
+| `gnss_only` | GNSS (0 PRN → MSP fallback) | MSP + LunaNet if relay |
 | `hybrid` | **Fuse** GNSS + pulsars + LunaNet (if relay) | Pulsars + supplemental LunaNet if relay |
 | `gnss_coast` | GNSS when visible | **No measurements** (stress baseline) |
 
