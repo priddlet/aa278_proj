@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import math
 from pathlib import Path
 
 from pulsar_nav.simulation.monte_carlo import MonteCarloResult
@@ -44,15 +45,24 @@ def _main_summary_md(
         "",
         f"Blackout fraction: **{100.0 * bf:.1f}%**",
         "",
-        "| Policy | Final mean (km) | Final p95 (km) | RMS (km) | Blackout μ (km) | Non-blackout μ (km) |",
-        "|--------|-----------------|----------------|----------|-----------------|---------------------|",
+        "_Timing: |b_rx−b_truth| (m) averaged over GNSS/LunaNet pseudorange epochs only. "
+        "XNAV-only and MSP-only blackout do not constrain b in H._",
+        "",
+        "| Policy | Final mean (km) | Final p95 (km) | RMS (km) | Blackout μ (km) | Non-blackout μ (km) | |b| mean (m) | |b| p95 (m) |",
+        "|--------|-----------------|----------------|----------|-----------------|---------------------|------------|-----------|",
     ]
     for pol in cfg.policies:
         s = result.by_policy[pol]
+        if pol.value == "xnav_only":
+            t_mean = "—"
+            t_p95 = "—"
+        else:
+            t_mean = f"{s.timing_mean_m:.2f}" if math.isfinite(s.timing_mean_m) else "—"
+            t_p95 = f"{s.timing_p95_m:.2f}" if math.isfinite(s.timing_p95_m) else "—"
         lines.append(
             f"| **{pol.value}** | {s.final_mean_m / 1e3:.2f} | {s.final_p95_m / 1e3:.2f} | "
             f"{s.rms_error_m / 1e3:.2f} | {s.blackout_mean_m / 1e3:.2f} | "
-            f"{s.non_blackout_mean_m / 1e3:.2f} |"
+            f"{s.non_blackout_mean_m / 1e3:.2f} | {t_mean} | {t_p95} |"
         )
     lines.append("")
     return "\n".join(lines)

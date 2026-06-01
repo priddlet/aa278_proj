@@ -12,7 +12,7 @@ from pulsar_nav.catalog.pulsar import Pulsar
 from pulsar_nav.constants import DEFAULT_TOA_SIGMA_S, DEFAULT_MC_DURATION_S
 from pulsar_nav.propagation.dynamics import DynamicsConfig
 from pulsar_nav.propagation.propagator import LunarPropagator, PropagatedTrajectory
-from pulsar_nav.simulation.hybrid_run import HybridRunResult, run_hybrid_ekf
+from pulsar_nav.simulation.hybrid_run import HybridRunResult, run_hybrid_ekf, timing_metrics_from_run
 from pulsar_nav.simulation.policy import NavPolicy
 from pulsar_nav.simulation.xnav_run import offset_initial_position
 from pulsar_nav.spice.ephemeris import str_to_et
@@ -74,6 +74,9 @@ class TrialMetrics:
     toa_sigma_s: float
     position_offset_m: float
     sweep_label: str = ""
+    timing_mean_m: float = float("nan")
+    timing_final_m: float = float("nan")
+    timing_p95_m: float = float("nan")
 
 
 @dataclass
@@ -90,6 +93,9 @@ class PolicyStats:
     blackout_mean_m: float
     non_blackout_mean_m: float
     meets_lunanet_p95: bool  # p95 final error < 13.43 m (optimistic check)
+    timing_mean_m: float = float("nan")
+    timing_final_m: float = float("nan")
+    timing_p95_m: float = float("nan")
 
     @property
     def final_mean_km(self) -> float:
@@ -114,16 +120,25 @@ class MonteCarloResult:
             f"pulsars={self.config.n_pulsars or 'all'}",
             "",
             f"{'Policy':<12} {'Final mean':>12} {'Final p95':>12} "
-            f"{'RMS':>10} {'Blackout μ':>12} {'<13.43m p95':>12}",
+            f"{'RMS':>10} {'Blackout μ':>12} {'|b| μ PR':>10} {'<13.43m p95':>12}",
         ]
         for pol in self.config.policies:
             s = self.by_policy[pol]
             ok = "yes" if s.meets_lunanet_p95 else "no"
+            t_mu = (
+                f"{s.timing_mean_m:>8.2f} m"
+                if pol != NavPolicy.XNAV_ONLY and np.isfinite(s.timing_mean_m)
+                else f"{'n/a':>10}"
+            )
             lines.append(
                 f"{pol.value:<12} {s.final_mean_m/1e3:>10.2f} km {s.final_p95_m/1e3:>10.2f} km "
-                f"{s.rms_error_m/1e3:>8.2f} km {s.blackout_mean_m/1e3:>10.2f} km {ok:>12}"
+                f"{s.rms_error_m/1e3:>8.2f} km {s.blackout_mean_m/1e3:>10.2f} km {t_mu:>10} {ok:>12}"
             )
-        lines.append(f"\nLunaNet reference: {LUNANET_REQUIREMENT_M:.2f} m (pitch)")
+        lines.append(
+            f"\nLunaNet reference: {LUNANET_REQUIREMENT_M:.2f} m (pitch)"
+            "\n|b| μ PR: mean |b_rx−b_truth| on GNSS/LunaNet pseudorange epochs only "
+            "(XNAV-only / MSP-only blackout: clock not in H)."
+        )
         return "\n".join(lines)
 
 
@@ -210,6 +225,16 @@ def _percentile(a: np.ndarray, q: float) -> float:
     return float(np.percentile(a, q)) if a.size else float("nan")
 
 
+def _nanmean_finite(a: np.ndarray) -> float:
+    """Mean over finite entries; NaN if empty or all-NaN (no RuntimeWarning)."""
+    if a.size == 0:
+        return float("nan")
+    finite = a[np.isfinite(a)]
+    if finite.size == 0:
+        return float("nan")
+    return float(np.mean(finite))
+
+
 def aggregate_policy_stats(trials: list[TrialMetrics], policy: NavPolicy) -> PolicyStats:
     subset = [t for t in trials if t.policy == policy]
     if not subset:
@@ -219,6 +244,9 @@ def aggregate_policy_stats(trials: list[TrialMetrics], policy: NavPolicy) -> Pol
     rms_e = np.array([t.rms_error_m for t in subset])
     bo = np.array([t.blackout_mean_m for t in subset])
     nb = np.array([t.non_blackout_mean_m for t in subset])
+    t_mean = np.array([t.timing_mean_m for t in subset])
+    t_final = np.array([t.timing_final_m for t in subset])
+    t_p95 = np.array([t.timing_p95_m for t in subset])
     p95 = _percentile(final, 95.0)
     return PolicyStats(
         policy=policy,
@@ -231,6 +259,9 @@ def aggregate_policy_stats(trials: list[TrialMetrics], policy: NavPolicy) -> Pol
         blackout_mean_m=float(np.nanmean(bo)),
         non_blackout_mean_m=float(np.nanmean(nb)),
         meets_lunanet_p95=p95 < LUNANET_REQUIREMENT_M,
+        timing_mean_m=_nanmean_finite(t_mean),
+        timing_final_m=_nanmean_finite(t_final),
+        timing_p95_m=_nanmean_finite(t_p95),
     )
 
 
@@ -271,6 +302,7 @@ def run_single_trial(
     )
     seg = result.segment_errors(timeline)
     errs = result.position_error_m
+    timing = timing_metrics_from_run(result, policy)
     return TrialMetrics(
         trial_id=trial_id,
         policy=policy,
@@ -285,6 +317,9 @@ def run_single_trial(
         toa_sigma_s=config.toa_sigma_s,
         position_offset_m=position_offset_m,
         sweep_label=sweep_label,
+        timing_mean_m=timing["timing_mean_m"],
+        timing_final_m=timing["timing_final_m"],
+        timing_p95_m=timing["timing_p95_m"],
     )
 
 

@@ -222,6 +222,54 @@ def _blackout_legend_handle(plt):
     return Patch(facecolor="#ef4444", alpha=0.25, label="GNSS blackout")
 
 
+def plot_clock_timing_trace(
+    run: HybridRunResult,
+    *,
+    title: str | None = None,
+) -> "matplotlib.figure.Figure | None":
+    """
+    |b_rx − b_truth| vs time on pseudorange epochs (GNSS / LunaNet).
+
+    Returns None for XNAV-only (clock not observed in H on MSP-only epochs).
+    """
+    from pulsar_nav.simulation.policy import NavPolicy
+
+    if run.policy == NavPolicy.XNAV_ONLY:
+        return None
+    if run.clock_timing_error_m is None or run.clock_constrained is None:
+        return None
+
+    plt = _require_matplotlib()
+    fig, ax = plt.subplots(figsize=(11, 3.8))
+    t_hr = run.t_s / 3600.0
+    mask = run.clock_constrained.astype(bool)
+    ax.plot(
+        t_hr[mask],
+        run.clock_timing_error_m[mask],
+        lw=1.2,
+        color=POLICY_COLORS.get(run.policy, "#333"),
+        label="|b_rx − b_truth| (PR epochs)",
+    )
+    if np.any(~mask):
+        ax.axvspan(
+            t_hr[0],
+            t_hr[-1],
+            color="#94a3b8",
+            alpha=0.06,
+            label="MSP-only (b not in H)",
+        )
+    ax.set_xlabel("time since epoch (hr)")
+    ax.set_ylabel("clock timing error (m)")
+    ax.set_title(
+        title
+        or f"{policy_display_name(run.policy)} — receiver clock bias error"
+    )
+    ax.grid(True, ls=":", alpha=0.5)
+    ax.legend(loc="upper right", fontsize=9)
+    fig.tight_layout()
+    return fig
+
+
 def plot_policy_error_propagation(
     run: HybridRunResult,
     timeline: VisibilityTimeline,

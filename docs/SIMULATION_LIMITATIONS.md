@@ -10,6 +10,7 @@ Several choices make the filter optimistic:
 |---------|---------|--------|
 | **`use_truth_velocity_predict`** | `True` | Propagation uses **true velocity** each step. The state follows the reference orbit between updates, so pulsar updates only need to correct offset, not integrate lunar dynamics error. |
 | **Synthetic XNAV** | truth position + noise | Measurements are `n̂·r_true + ν`, not a full timing / delta-TOA pipeline with clock states tied to barycentric TOA. |
+| **Clock timing metrics** | `|b_rx − 0|` on PR epochs | Reported for `hybrid` / `gnss_only` only. XNAV-only and MSP-only blackout epochs do not observe `b` in **H** (LOS rows). |
 | **LOS model** | linear `n̂·r` | Sheikh linearized scalar; no explicit range ambiguity, no separate timing arc. |
 | **TOA σ = 1 µs** | ~300 m range σ per pulsar | With **5 MSPs every 120 s** and oracle propagation, sub-km means over the arc are possible in simulation. |
 

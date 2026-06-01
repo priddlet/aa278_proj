@@ -116,6 +116,42 @@ def test_gnss_only_lonet_supplement_in_blackout_when_relay_visible(spice_loaded)
 
 
 @pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")
+def test_clock_timing_logged_on_pseudorange_epochs(spice_loaded):
+    from pulsar_nav.catalog import load_catalog
+    from pulsar_nav.propagation.dynamics import DynamicsConfig
+    from pulsar_nav.propagation.propagator import LunarPropagator
+    from pulsar_nav.simulation.hybrid_run import run_hybrid_on_propagated
+    from pulsar_nav.simulation.policy import NavPolicy
+    from pulsar_nav.spice.ephemeris import str_to_et
+    from pulsar_nav.visibility.blackout import compute_visibility_timeline
+
+    et0 = str_to_et("2026-01-15 12:00:00")
+    prop = LunarPropagator(et0, config=DynamicsConfig(), auto_load_kernels=False)
+    traj = prop.propagate_preset("elfo", duration_s=6.0 * 3600.0, step_s=120.0)
+    tl = compute_visibility_timeline(traj)
+    hybrid = run_hybrid_on_propagated(
+        traj, load_catalog(), timeline=tl, rng=np.random.default_rng(4)
+    )
+    xnav = run_hybrid_on_propagated(
+        traj,
+        load_catalog(),
+        policy=NavPolicy.XNAV_ONLY,
+        timeline=tl,
+        rng=np.random.default_rng(5),
+    )
+    from pulsar_nav.simulation.hybrid_run import timing_metrics_from_run
+
+    assert hybrid.clock_timing_error_m is not None
+    constrained = hybrid.timing_errors_constrained()
+    assert constrained.size > 0
+    assert np.all(np.isfinite(constrained))
+    h_timing = timing_metrics_from_run(hybrid, NavPolicy.HYBRID)
+    x_timing = timing_metrics_from_run(xnav, NavPolicy.XNAV_ONLY)
+    assert np.isfinite(h_timing["timing_mean_m"])
+    assert np.isnan(x_timing["timing_mean_m"])
+
+
+@pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")
 def test_hybrid_beats_xnav_only_on_elfo(spice_loaded):
     from pulsar_nav.catalog import load_catalog
     from pulsar_nav.propagation.dynamics import DynamicsConfig

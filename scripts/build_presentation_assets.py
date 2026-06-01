@@ -122,18 +122,28 @@ def _summary_markdown(
     if result.timeline:
         lines.append(f"Blackout fraction: **{100.0 * result.timeline.blackout_fraction:.1f}%**")
         lines.append("")
+    import math
+
     lines.extend(
         [
-            "| Policy | Final mean (km) | Final p95 (km) | RMS (km) | Blackout μ (km) | Non-blackout μ (km) |",
-            "|--------|-----------------|----------------|----------|-----------------|---------------------|",
+            "_Timing: |b_rx−b_truth| (m) on GNSS/LunaNet pseudorange epochs; "
+            "XNAV-only / MSP-only blackout: clock not in H._",
+            "",
+            "| Policy | Final mean (km) | Final p95 (km) | RMS (km) | Blackout μ (km) | Non-blackout μ (km) | |b| mean (m) | |b| p95 (m) |",
+            "|--------|-----------------|----------------|----------|-----------------|---------------------|------------|-----------|",
         ]
     )
     for pol in result.config.policies:
         s = result.by_policy[pol]
+        if pol.value == "xnav_only":
+            t_mean, t_p95 = "—", "—"
+        else:
+            t_mean = f"{s.timing_mean_m:.2f}" if math.isfinite(s.timing_mean_m) else "—"
+            t_p95 = f"{s.timing_p95_m:.2f}" if math.isfinite(s.timing_p95_m) else "—"
         lines.append(
             f"| {pol.value} | {s.final_mean_m / 1e3:.2f} | {s.final_p95_m / 1e3:.2f} | "
             f"{s.rms_error_m / 1e3:.2f} | {s.blackout_mean_m / 1e3:.2f} | "
-            f"{s.non_blackout_mean_m / 1e3:.2f} |"
+            f"{s.non_blackout_mean_m / 1e3:.2f} | {t_mean} | {t_p95} |"
         )
     lines.append("")
     return "\n".join(lines)
@@ -259,9 +269,11 @@ def build_nav_pipeline(
     tables_dir: Path,
 ) -> tuple[list[str], str]:
     """Monte Carlo figures for one predict mode."""
+    from pulsar_nav.simulation.policy import NavPolicy
     from pulsar_nav.visualization.monte_carlo_plots import (
         plot_all_policies_envelope,
         plot_all_policies_propagation,
+        plot_clock_timing_trace,
         plot_final_error_boxplot,
         plot_final_error_cdf,
         plot_policy_error_envelope,
@@ -300,6 +312,16 @@ def build_nav_pipeline(
         fname = f"mc_{args.preset}_{policy.value}_propagation.png"
         save_figure(fig, nav_dir / fname)
         saved.append(fname)
+
+        if policy in (NavPolicy.HYBRID, NavPolicy.GNSS_ONLY):
+            fig_clk = plot_clock_timing_trace(
+                run,
+                title=f"{policy_display_name(policy)} — clock timing error",
+            )
+            if fig_clk is not None:
+                clk_fname = f"mc_{args.preset}_{policy.value}_clock_timing.png"
+                save_figure(fig_clk, nav_dir / clk_fname)
+                saved.append(clk_fname)
 
     fig_cmp = plot_all_policies_propagation(
         rep_runs,

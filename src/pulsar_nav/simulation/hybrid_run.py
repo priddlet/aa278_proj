@@ -24,6 +24,9 @@ from pulsar_nav.visibility.lonet import (
     propagate_constellation_mci,
 )
 
+# Truth clock bias in simulation (synthetic measurements use b_tx = 0).
+TRUTH_CLOCK_BIAS_M = 0.0
+
 
 @dataclass
 class HybridEpochLog:
@@ -37,6 +40,9 @@ class HybridEpochLog:
     gnss_pdop: float = float("nan")
     nis: float = float("nan")
     n_meas: int = 0
+    clock_bias_m: float = 0.0
+    clock_timing_error_m: float = float("nan")
+    clock_constrained: bool = False
 
 
 @dataclass
@@ -54,6 +60,9 @@ class HybridRunResult:
     policy: NavPolicy
     nis: np.ndarray | None = None
     nis_dof: np.ndarray | None = None
+    clock_bias_m: np.ndarray | None = None
+    clock_timing_error_m: np.ndarray | None = None
+    clock_constrained: np.ndarray | None = None
 
     @property
     def final_position_error_m(self) -> float:
@@ -66,6 +75,22 @@ class HybridRunResult:
     @property
     def rms_position_error_m(self) -> float:
         return float(np.sqrt(np.mean(self.position_error_m**2)))
+
+    def timing_errors_constrained(self) -> np.ndarray:
+        """|b_rx − b_truth| on epochs with GNSS and/or LunaNet pseudoranges."""
+        if self.clock_timing_error_m is None or self.clock_constrained is None:
+            return np.array([], dtype=float)
+        mask = self.clock_constrained.astype(bool)
+        return self.clock_timing_error_m[mask]
+
+    @property
+    def final_constrained_timing_error_m(self) -> float:
+        if self.clock_timing_error_m is None or self.clock_constrained is None:
+            return float("nan")
+        for i in range(len(self.clock_constrained) - 1, -1, -1):
+            if self.clock_constrained[i]:
+                return float(self.clock_timing_error_m[i])
+        return float("nan")
 
     def segment_errors(self, timeline: VisibilityTimeline) -> dict[str, float]:
         """Mean 3D error (m) over blackout vs non-blackout samples."""
@@ -80,6 +105,26 @@ class HybridRunResult:
             "blackout_mean_m": float(np.mean(blackout_err)) if blackout_err else float("nan"),
             "non_blackout_mean_m": float(np.mean(clear_err)) if clear_err else float("nan"),
         }
+
+
+def timing_metrics_from_run(result: HybridRunResult, policy: NavPolicy) -> dict[str, float]:
+    """
+    |b_rx − b_truth| over pseudorange epochs (GNSS and/or LunaNet).
+
+    XNAV-only and MSP-only blackout segments do not observe the clock in H;
+    returns NaNs for ``NavPolicy.XNAV_ONLY``.
+    """
+    nan = float("nan")
+    if policy == NavPolicy.XNAV_ONLY:
+        return {"timing_mean_m": nan, "timing_final_m": nan, "timing_p95_m": nan}
+    constrained = result.timing_errors_constrained()
+    if constrained.size == 0:
+        return {"timing_mean_m": nan, "timing_final_m": nan, "timing_p95_m": nan}
+    return {
+        "timing_mean_m": float(np.mean(constrained)),
+        "timing_final_m": result.final_constrained_timing_error_m,
+        "timing_p95_m": float(np.percentile(constrained, 95.0)),
+    }
 
 
 def _build_relay_positions(
@@ -316,6 +361,9 @@ def run_hybrid_ekf(
     pos_err = np.zeros(n)
     nis_arr = np.full(n, np.nan)
     dof_arr = np.zeros(n, dtype=int)
+    clock_bias_arr = np.zeros(n)
+    clock_timing_arr = np.full(n, np.nan)
+    clock_constrained_arr = np.zeros(n, dtype=bool)
     modes = np.array([s.nav_mode.value for s in timeline.samples], dtype=object)
     segments = np.empty(n, dtype=object)
     logs: list[HybridEpochLog] = []
@@ -369,6 +417,13 @@ def run_hybrid_ekf(
         est_pos[i] = ekf.state.position_m
         pos_err[i] = np.linalg.norm(est_pos[i] - truth_pos[i])
 
+        pr_constrained = i > 0 and bool(gnss or lonet)
+        bias_m = float(ekf.state.clock_bias_m)
+        clock_bias_arr[i] = bias_m
+        clock_constrained_arr[i] = pr_constrained
+        if pr_constrained:
+            clock_timing_arr[i] = abs(bias_m - TRUTH_CLOCK_BIAS_M)
+
         gnss_pdop = float("nan")
         if gnss:
             los = gnss_sidelobe_los_unit_rows(truth_pos[i], traj.et[i])
@@ -395,6 +450,9 @@ def run_hybrid_ekf(
                 gnss_pdop=gnss_pdop,
                 nis=nis,
                 n_meas=n_meas,
+                clock_bias_m=bias_m,
+                clock_timing_error_m=clock_timing_arr[i],
+                clock_constrained=pr_constrained,
             )
         )
 
@@ -410,6 +468,9 @@ def run_hybrid_ekf(
         policy=policy,
         nis=nis_arr,
         nis_dof=dof_arr,
+        clock_bias_m=clock_bias_arr,
+        clock_timing_error_m=clock_timing_arr,
+        clock_constrained=clock_constrained_arr,
     )
 
 

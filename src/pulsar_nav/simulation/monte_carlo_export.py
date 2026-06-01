@@ -91,6 +91,9 @@ def _trial_row(campaign: str, trial: TrialMetrics) -> dict[str, Any]:
         "toa_sigma_us": trial.toa_sigma_s * 1e6,
         "position_offset_km": trial.position_offset_m / 1000.0,
         "sweep_label": trial.sweep_label,
+        "timing_mean_m": trial.timing_mean_m,
+        "timing_final_m": trial.timing_final_m,
+        "timing_p95_m": trial.timing_p95_m,
     }
 
 
@@ -107,6 +110,9 @@ def _summary_row(campaign: str, stats: PolicyStats) -> dict[str, Any]:
         "blackout_mean_km": stats.blackout_mean_m / 1000.0,
         "non_blackout_mean_km": stats.non_blackout_mean_m / 1000.0,
         "meets_lunanet_p95": stats.meets_lunanet_p95,
+        "timing_mean_m": stats.timing_mean_m,
+        "timing_final_m": stats.timing_final_m,
+        "timing_p95_m": stats.timing_p95_m,
     }
 
 
