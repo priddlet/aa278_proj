@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from pulsar_nav.catalog.pulsar import Pulsar
-from pulsar_nav.propagation.dynamics import DynamicsConfig
+from pulsar_nav.propagation.dynamics import DynamicsConfig, dynamics_config_for_sim
 from pulsar_nav.propagation.propagator import LunarPropagator, PropagatedTrajectory
 from pulsar_nav.simulation.hybrid_run import HybridRunResult, run_hybrid_ekf
 from pulsar_nav.simulation.monte_carlo import MonteCarloConfig, _trial_offset_m, select_pulsars
@@ -35,12 +35,17 @@ def propagate_truth_arc(
     epoch_utc: str = "2026-01-15T12:00:00",
     duration_s: float,
     step_s: float = 120.0,
+    include_disturbances: bool = False,
+    dynamics_config: DynamicsConfig | None = None,
 ) -> tuple[PropagatedTrajectory, VisibilityTimeline]:
     from pulsar_nav.spice.kernels import load_kernels
 
     load_kernels(load_gps_frames=True)
     et0 = str_to_et(epoch_utc)
-    prop = LunarPropagator(et0, config=DynamicsConfig(), auto_load_kernels=False)
+    dyn_cfg = dynamics_config or dynamics_config_for_sim(
+        include_disturbances=include_disturbances
+    )
+    prop = LunarPropagator(et0, config=dyn_cfg, auto_load_kernels=False)
     traj = prop.propagate_preset(preset, duration_s=duration_s, step_s=step_s)
     timeline = compute_visibility_timeline(traj)
     return traj, timeline
@@ -69,7 +74,14 @@ def _run_policy_trace(
         gnss_sigma_m=config.gnss_sigma_m,
         lonet_sigma_m=config.lonet_sigma_m,
         process_noise_accel=config.process_noise_accel,
+        gravity_scaled_q=config.gravity_scaled_q,
+        q_accel_scale=config.q_accel_scale,
+        predict_mode=config.predict_mode,
         use_truth_velocity_predict=config.use_truth_velocity_predict,
+        use_dynamics_predict=config.use_dynamics_predict,
+        dynamics_config=config.dynamics_config(),
+        dynamics_sigma_acc_km=config.dynamics_sigma_acc_km,
+        dynamics_use_hw2_process_noise=config.dynamics_use_hw2_process_noise,
         rng=meas_rng,
         policy=policy,
     )
@@ -93,6 +105,7 @@ def run_representative_policy_runs(
             epoch_utc=config.epoch_utc,
             duration_s=config.duration_s,
             step_s=config.step_s,
+            dynamics_config=config.dynamics_config(),
         )
 
     pulsars = select_pulsars(config.n_pulsars)
@@ -135,6 +148,7 @@ def collect_error_envelopes(
             epoch_utc=config.epoch_utc,
             duration_s=config.duration_s,
             step_s=config.step_s,
+            dynamics_config=config.dynamics_config(),
         )
 
     pulsars = select_pulsars(config.n_pulsars)

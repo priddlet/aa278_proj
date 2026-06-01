@@ -166,9 +166,18 @@ def export_presentation_tables(
 
     campaign = f"main_{preset}"
     result = bundle.main
-    predict_mode = (
-        "truth_velocity" if result.config.use_truth_velocity_predict else "filter_predict"
+    from pulsar_nav.simulation.predict_mode import PredictMode, resolve_predict_mode
+
+    mode = resolve_predict_mode(
+        predict_mode=result.config.predict_mode,
+        use_truth_velocity_predict=result.config.use_truth_velocity_predict,
+        use_dynamics_predict=result.config.use_dynamics_predict,
     )
+    predict_mode = {
+        PredictMode.TRUTH_VELOCITY: "truth_velocity",
+        PredictMode.CV: "filter_predict",
+        PredictMode.DYNAMICS: "filter_dynamics",
+    }[mode]
 
     summary_md = _main_summary_md(
         result,

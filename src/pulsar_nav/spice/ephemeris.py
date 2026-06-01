@@ -9,6 +9,7 @@ import spiceypy as spice
 
 from pulsar_nav.constants import SECS_PER_DAY
 
+KM_TO_M = 1000.0
 MJD_J2000_TT = 51544.5
 
 
@@ -66,6 +67,27 @@ def moon_position_icrs_km(et: float) -> np.ndarray:
 def mci_to_icrs_position(position_mci_km: np.ndarray, et: float) -> np.ndarray:
     """Spacecraft position in ICRS (km) from Moon-centered J2000 position."""
     return moon_position_icrs_km(et) + np.asarray(position_mci_km, dtype=float)
+
+
+def icrs_position_from_mci_km(position_mci_km: np.ndarray, et: float) -> np.ndarray:
+    """Alias for MCI → ICRS position (km)."""
+    return mci_to_icrs_position(position_mci_km, et)
+
+
+def moon_velocity_icrs_km_s(et: float, *, fd_dt_s: float = 1.0) -> np.ndarray:
+    """Moon center velocity in ICRS (km/s) via centered difference."""
+    dt = float(fd_dt_s)
+    return (moon_position_icrs_km(et + dt) - moon_position_icrs_km(et - dt)) / (2.0 * dt)
+
+
+def mci_velocity_from_icrs_m_s(velocity_icrs_m_s: np.ndarray, et: float) -> np.ndarray:
+    """Spacecraft velocity in MCI (km/s) from ICRS (m/s)."""
+    return np.asarray(velocity_icrs_m_s, float) / KM_TO_M - moon_velocity_icrs_km_s(et)
+
+
+def icrs_velocity_from_mci_km_s(velocity_mci_km_s: np.ndarray, et: float) -> np.ndarray:
+    """Spacecraft velocity in ICRS (km/s) from MCI (km/s)."""
+    return moon_velocity_icrs_km_s(et) + np.asarray(velocity_mci_km_s, dtype=float)
 
 
 def mci_to_pa_rotation(et: float) -> np.ndarray:

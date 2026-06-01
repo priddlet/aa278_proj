@@ -2,6 +2,16 @@
 
 Monte Carlo and envelope plots are useful for **relative** policy comparison in this codebase, not for claiming sub-kilometer absolute XNAV accuracy on orbit.
 
+## Force model (truth vs filter)
+
+| Layer | Default | With `include_disturbances=True` / `--disturbed-dynamics` |
+|-------|---------|-------------------------------------------------------------|
+| **Truth arc** | HW2 P2: μ\_m + Earth + Sun (`solve_ivp` RK45) | + Moon **J2** + **SRP** (HW2 P3 γ = C\_R·A/m) |
+| **Filter CV / truth_velocity** | Same truth arc; predict uses CV or true **v** | Same disturbed truth; predict unchanged |
+| **Filter dynamics** | Same `DynamicsConfig` as truth when disturbances on | Verlet step uses J2+SRP on the **estimate** |
+
+Disturbances are **not** on by default (preserves existing presentation tables). Regenerate all pipelines with the same flag so truth and `filter_dynamics` stay matched.
+
 ## Why XNAV-only can look “too good” (sub-km in blackout)
 
 Several choices make the filter optimistic:
@@ -66,7 +76,7 @@ LunaNet is **not** a fourth standalone phase. Plots label measured segments (`xn
 
 ## Process noise (constant CWNA)
 
-Monte Carlo uses fixed **`process_noise_accel`** (default **1e-4 m²/s³**) on the CV position/velocity block — no periapsis scaling. Filter CV may show **NIS/df ≫ 1**; check with `python scripts/check_nis.py --filter-predict`. Do not treat **p95** as calibrated when NIS/df is far from 1.
+Monte Carlo default uses fixed **`process_noise_accel`** (default **1e-4 m²/s³**). Optional **`gravity_scaled_q`** sets q_a(r) ≈ (scale·GM/r²)² each predict (`filter/process_noise.py`). Compare modes with `python scripts/sweep_process_noise.py --filter-predict`. Filter CV may show **NIS/df ≫ 1** with undertuned constant Q; do not treat **p95** as calibrated when NIS/df is far from 1.
 
 **`gnss_only`** under filter CV may still diverge in position (poor sidelobe geometry).
 

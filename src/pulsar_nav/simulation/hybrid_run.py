@@ -9,11 +9,14 @@ import numpy as np
 from pulsar_nav.catalog.pulsar import Pulsar
 from pulsar_nav.constants import DEFAULT_TOA_SIGMA_S
 from pulsar_nav.filter.ekf import PulsarNavEKF
+from pulsar_nav.filter.process_noise import gravity_scaled_q_accel
 from pulsar_nav.measurements.gnss_meas import gnss_pseudoranges, gnss_sidelobe_los_unit_rows
 from pulsar_nav.visibility.gdop import position_dop_from_los
 from pulsar_nav.measurements.lonet_meas import lonet_pseudoranges
 from pulsar_nav.measurements.xnav import synthesize_measurement
+from pulsar_nav.propagation.dynamics import DynamicsConfig
 from pulsar_nav.propagation.propagator import PropagatedTrajectory
+from pulsar_nav.simulation.predict_mode import PredictMode, resolve_predict_mode
 from pulsar_nav.simulation.policy import NavPolicy, PolicySegment, segment_from_measurements
 from pulsar_nav.simulation.xnav_run import offset_initial_position
 from pulsar_nav.spice.ephemeris import body_position_mci
@@ -329,7 +332,14 @@ def run_hybrid_ekf(
     position_sigma_m: float = 100_000.0,
     velocity_sigma_m_s: float = 100.0,
     process_noise_accel: float = 1e-3,
+    gravity_scaled_q: bool = False,
+    q_accel_scale: float = 1.0,
+    predict_mode: PredictMode | str | None = None,
     use_truth_velocity_predict: bool = True,
+    use_dynamics_predict: bool = False,
+    dynamics_config: DynamicsConfig | None = None,
+    dynamics_sigma_acc_km: float | None = None,
+    dynamics_use_hw2_process_noise: bool | None = None,
     toa_sigma_s: float = DEFAULT_TOA_SIGMA_S,
     gnss_sigma_m: float = 15.0,
     lonet_sigma_m: float = 15.0,
@@ -353,6 +363,27 @@ def run_hybrid_ekf(
         velocity_sigma_m_s=velocity_sigma_m_s,
     )
     ekf.process_noise_accel = process_noise_accel
+    mode = resolve_predict_mode(
+        predict_mode=predict_mode,
+        use_truth_velocity_predict=use_truth_velocity_predict,
+        use_dynamics_predict=use_dynamics_predict,
+    )
+    dyn_cfg = dynamics_config or DynamicsConfig()
+    if dynamics_sigma_acc_km is not None:
+        ekf.dynamics_sigma_acc_km = dynamics_sigma_acc_km
+    if dynamics_use_hw2_process_noise is not None:
+        ekf.dynamics_use_hw2_process_noise = dynamics_use_hw2_process_noise
+
+    def _set_process_noise(step: int) -> None:
+        if mode == PredictMode.DYNAMICS:
+            ekf.process_noise_accel = process_noise_accel
+            return
+        if gravity_scaled_q:
+            # Moon-centered radius (not heliocentric ICRS norm).
+            r_km = float(np.linalg.norm(traj.position_mci_km[step]))
+            ekf.process_noise_accel = gravity_scaled_q_accel(r_km, scale=q_accel_scale)
+        else:
+            ekf.process_noise_accel = process_noise_accel
 
     n = len(traj.t_rel_s)
     truth_pos = traj.position_icrs_m.copy()
@@ -378,8 +409,11 @@ def run_hybrid_ekf(
 
         if i > 0:
             dt = float(traj.t_rel_s[i] - traj.t_rel_s[i - 1])
-            if use_truth_velocity_predict:
+            _set_process_noise(i - 1)
+            if mode == PredictMode.TRUTH_VELOCITY:
                 ekf.predict_kinematic(dt, truth_vel[i - 1])
+            elif mode == PredictMode.DYNAMICS:
+                ekf.predict_dynamics(dt, traj.et[i - 1], dynamics_config=dyn_cfg)
             else:
                 ekf.predict(dt)
 

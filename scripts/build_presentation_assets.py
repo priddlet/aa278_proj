@@ -43,6 +43,7 @@ from pulsar_nav.simulation.presentation_runs import (
     propagate_truth_arc,
     run_representative_policy_runs,
 )
+from pulsar_nav.simulation.predict_mode import PredictMode
 from pulsar_nav.spice.kernels import load_kernels
 
 
@@ -52,22 +53,36 @@ class NavPipeline:
 
     slug: str
     label: str
-    use_truth_velocity_predict: bool
+    predict_mode: PredictMode
     short_note: str
+
+    @property
+    def use_truth_velocity_predict(self) -> bool:
+        return self.predict_mode == PredictMode.TRUTH_VELOCITY
+
+    @property
+    def use_dynamics_predict(self) -> bool:
+        return self.predict_mode == PredictMode.DYNAMICS
 
 
 PIPELINES = {
     "truth_velocity": NavPipeline(
         slug="truth_velocity",
         label="Truth-velocity predict",
-        use_truth_velocity_predict=True,
+        predict_mode=PredictMode.TRUTH_VELOCITY,
         short_note="Oracle motion between measurements (default sim; optimistic absolute errors).",
     ),
     "filter_predict": NavPipeline(
         slug="filter_predict",
         label="Filter CV predict",
-        use_truth_velocity_predict=False,
+        predict_mode=PredictMode.CV,
         short_note="EKF constant-velocity predict only; more realistic dynamics stress.",
+    ),
+    "filter_dynamics": NavPipeline(
+        slug="filter_dynamics",
+        label="Filter dynamics predict",
+        predict_mode=PredictMode.DYNAMICS,
+        short_note="EKF RK45+STM predict (HW2 Tier A); σ_acc km/s²/√s process noise.",
     ),
 }
 
@@ -88,15 +103,20 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--quick", action="store_true", help="5 MC trials, skip sweeps and envelope")
     p.add_argument(
         "--pipelines",
-        choices=("both", "truth_velocity", "filter_predict", "common"),
+        choices=("both", "truth_velocity", "filter_predict", "filter_dynamics", "nav", "common"),
         default="both",
-        help="Which figure sets to build (common = geometry only)",
+        help="Which figure sets to build (nav = all filter pipelines; common = geometry only)",
     )
     p.add_argument(
         "--presentation-root",
         type=str,
         default=None,
         help="Root under figures/ (default: figures/presentation)",
+    )
+    p.add_argument(
+        "--disturbed-dynamics",
+        action="store_true",
+        help="Truth + filter dynamics: Moon J2 and HW2 SRP (gamma=C_R*A/m)",
     )
     return p.parse_args()
 
@@ -107,7 +127,12 @@ def _summary_markdown(
     preset: str,
     pipeline: NavPipeline,
 ) -> str:
-    predict = "truth velocity" if pipeline.use_truth_velocity_predict else "filter CV"
+    predict_labels = {
+        PredictMode.TRUTH_VELOCITY: "truth velocity",
+        PredictMode.CV: "filter CV",
+        PredictMode.DYNAMICS: "filter dynamics (MCI force model)",
+    }
+    predict = predict_labels[pipeline.predict_mode]
     lines = [
         f"## Monte Carlo — {preset.upper()} ({pipeline.label})",
         "",
@@ -119,6 +144,12 @@ def _summary_markdown(
         f"_{pipeline.short_note}_",
         "",
     ]
+    if result.config.include_disturbances:
+        lines.append(
+            "Force model: **Moon J2 + SRP** (HW2 P3 γ) on truth arc; "
+            "filter dynamics predict uses the same `DynamicsConfig`."
+        )
+        lines.append("")
     if result.timeline:
         lines.append(f"Blackout fraction: **{100.0 * result.timeline.blackout_fraction:.1f}%**")
         lines.append("")
@@ -163,7 +194,10 @@ def _mc_config(
         duration_s=duration_s,
         step_s=120.0,
         toa_sigma_s=args.toa_us * 1e-6,
+        predict_mode=pipeline.predict_mode,
         use_truth_velocity_predict=pipeline.use_truth_velocity_predict,
+        use_dynamics_predict=pipeline.use_dynamics_predict,
+        include_disturbances=args.disturbed_dynamics,
         policies=(
             NavPolicy.XNAV_ONLY,
             NavPolicy.GNSS_ONLY,
@@ -195,6 +229,7 @@ def build_common_figures(
         preset=args.preset,
         duration_s=args.visibility_hr * 3600.0,
         step_s=120.0,
+        include_disturbances=args.disturbed_dynamics,
     )
     bf = 100.0 * vis_tl.blackout_fraction
     print(f"  {args.preset.upper()} {args.visibility_hr:.0f} hr — blackout {bf:.1f}%")
@@ -294,6 +329,7 @@ def build_nav_pipeline(
         epoch_utc=cfg.epoch_utc,
         duration_s=cfg.duration_s,
         step_s=cfg.step_s,
+        dynamics_config=cfg.dynamics_config(),
     )
 
     print("Representative trial traces...")
@@ -389,7 +425,9 @@ def build_nav_pipeline(
             duration_s=cfg.duration_s,
             step_s=cfg.step_s,
             toa_sigma_s=cfg.toa_sigma_s,
+            predict_mode=pipeline.predict_mode,
             use_truth_velocity_predict=pipeline.use_truth_velocity_predict,
+            use_dynamics_predict=pipeline.use_dynamics_predict,
         )
         print("Pulsar count sweep...")
         pulsar_sweep = run_pulsar_count_sweep(
@@ -487,24 +525,34 @@ def main() -> None:
     ]
 
     run_common = args.pipelines in ("both", "common")
-    run_nav = args.pipelines in ("both", "truth_velocity", "filter_predict")
+    run_nav = args.pipelines in (
+        "both",
+        "truth_velocity",
+        "filter_predict",
+        "filter_dynamics",
+        "nav",
+    )
 
     if run_common:
         build_common_figures(common_dir, args)
 
     if run_nav:
         pipelines_to_run: list[NavPipeline] = []
-        if args.pipelines in ("both", "truth_velocity"):
+        if args.pipelines in ("both", "truth_velocity", "nav"):
             pipelines_to_run.append(PIPELINES["truth_velocity"])
-        if args.pipelines in ("both", "filter_predict"):
+        if args.pipelines in ("both", "filter_predict", "nav"):
             pipelines_to_run.append(PIPELINES["filter_predict"])
+        if args.pipelines in ("both", "filter_dynamics", "nav"):
+            pipelines_to_run.append(PIPELINES["filter_dynamics"])
+
+        predict_row_labels = {
+            PredictMode.TRUTH_VELOCITY: "Truth velocity between updates",
+            PredictMode.CV: "Filter CV predict only",
+            PredictMode.DYNAMICS: "Filter dynamics (RK45 + STM, HW2 Q)",
+        }
 
         for pipeline in pipelines_to_run:
-            predict_row = (
-                "Truth velocity between updates"
-                if pipeline.use_truth_velocity_predict
-                else "Filter CV predict only"
-            )
+            predict_row = predict_row_labels[pipeline.predict_mode]
             index_lines.append(
                 f"| {pipeline.label} | `{pres_root / pipeline.slug}` | "
                 f"{predict_row} | "

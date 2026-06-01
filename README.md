@@ -97,6 +97,8 @@ python scripts/demo_monte_carlo.py --sweep-toa --trials 20 --no-show  # include 
 # Far-side coast stress: python scripts/demo_monte_carlo.py --trials 20 --stress-coast --no-show
 # Hybrid non-blackout GNSS PDOP / PRN log: python scripts/log_hybrid_non_blackout_geometry.py
 # NIS/df diagnostic (constant Q): python scripts/check_nis.py --filter-predict
+# Q tuning table (filter CV): python scripts/sweep_process_noise.py --filter-predict --trials 10
+# Filter dynamics predict MC: python scripts/build_presentation_assets.py --pipelines filter_dynamics
 
 # Presentation bundle: common/ + truth_velocity/ + filter_predict/ figures
 python scripts/build_presentation_assets.py          # see docs/PRESENTATION.md

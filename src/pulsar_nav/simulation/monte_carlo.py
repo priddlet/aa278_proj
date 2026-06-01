@@ -10,10 +10,15 @@ import numpy as np
 from pulsar_nav.catalog import load_catalog
 from pulsar_nav.catalog.pulsar import Pulsar
 from pulsar_nav.constants import DEFAULT_TOA_SIGMA_S, DEFAULT_MC_DURATION_S
-from pulsar_nav.propagation.dynamics import DynamicsConfig
+from pulsar_nav.propagation.dynamics import DynamicsConfig, dynamics_config_for_sim
 from pulsar_nav.propagation.propagator import LunarPropagator, PropagatedTrajectory
-from pulsar_nav.simulation.hybrid_run import HybridRunResult, run_hybrid_ekf, timing_metrics_from_run
+from pulsar_nav.simulation.hybrid_run import (
+    HybridRunResult,
+    run_hybrid_ekf,
+    timing_metrics_from_run,
+)
 from pulsar_nav.simulation.policy import NavPolicy
+from pulsar_nav.simulation.predict_mode import PredictMode, resolve_predict_mode
 from pulsar_nav.simulation.xnav_run import offset_initial_position
 from pulsar_nav.spice.ephemeris import str_to_et
 from pulsar_nav.visibility.blackout import VisibilityTimeline, compute_visibility_timeline
@@ -49,12 +54,23 @@ class MonteCarloConfig:
     lonet_sigma_m: float = 15.0
     n_pulsars: int | None = None  # None = full SEXTANT set
     process_noise_accel: float = 1e-4
+    gravity_scaled_q: bool = False
+    q_accel_scale: float = 1.0
+    predict_mode: PredictMode | str | None = None
     use_truth_velocity_predict: bool = True
+    use_dynamics_predict: bool = False
+    include_disturbances: bool = False
+    dynamics_sigma_acc_km: float = 1e-6
+    dynamics_use_hw2_process_noise: bool = True
     policies: tuple[NavPolicy, ...] = (
         NavPolicy.XNAV_ONLY,
         NavPolicy.GNSS_ONLY,
         NavPolicy.HYBRID,
     )
+
+    def dynamics_config(self) -> DynamicsConfig:
+        """Force model for truth arc and filter ``predict_mode=dynamics``."""
+        return dynamics_config_for_sim(include_disturbances=self.include_disturbances)
 
 
 @dataclass
@@ -77,6 +93,7 @@ class TrialMetrics:
     timing_mean_m: float = float("nan")
     timing_final_m: float = float("nan")
     timing_p95_m: float = float("nan")
+    nis_median_dof: float = float("nan")
 
 
 @dataclass
@@ -96,10 +113,21 @@ class PolicyStats:
     timing_mean_m: float = float("nan")
     timing_final_m: float = float("nan")
     timing_p95_m: float = float("nan")
+    nis_median_dof: float = float("nan")
 
     @property
     def final_mean_km(self) -> float:
         return self.final_mean_m / 1000.0
+
+
+def median_nis_per_dof(result: HybridRunResult) -> float:
+    """Median NIS/dof over measurement epochs (consistency target ≈ 1)."""
+    if result.nis is None or result.nis_dof is None:
+        return float("nan")
+    mask = (result.nis_dof > 0) & np.isfinite(result.nis)
+    if not np.any(mask):
+        return float("nan")
+    return float(np.median(result.nis[mask] / result.nis_dof[mask]))
 
 
 @dataclass
@@ -200,6 +228,7 @@ def run_preset_comparison(
             n_pulsars=base.n_pulsars,
             process_noise_accel=base.process_noise_accel,
             use_truth_velocity_predict=base.use_truth_velocity_predict,
+            include_disturbances=base.include_disturbances,
             policies=base.policies,
         )
         results[preset] = run_monte_carlo(cfg)
@@ -247,6 +276,7 @@ def aggregate_policy_stats(trials: list[TrialMetrics], policy: NavPolicy) -> Pol
     t_mean = np.array([t.timing_mean_m for t in subset])
     t_final = np.array([t.timing_final_m for t in subset])
     t_p95 = np.array([t.timing_p95_m for t in subset])
+    nis_dof = np.array([t.nis_median_dof for t in subset])
     p95 = _percentile(final, 95.0)
     return PolicyStats(
         policy=policy,
@@ -262,6 +292,7 @@ def aggregate_policy_stats(trials: list[TrialMetrics], policy: NavPolicy) -> Pol
         timing_mean_m=_nanmean_finite(t_mean),
         timing_final_m=_nanmean_finite(t_final),
         timing_p95_m=_nanmean_finite(t_p95),
+        nis_median_dof=_nanmean_finite(nis_dof),
     )
 
 
@@ -296,7 +327,18 @@ def run_single_trial(
         gnss_sigma_m=config.gnss_sigma_m,
         lonet_sigma_m=config.lonet_sigma_m,
         process_noise_accel=config.process_noise_accel,
+        gravity_scaled_q=config.gravity_scaled_q,
+        q_accel_scale=config.q_accel_scale,
+        predict_mode=resolve_predict_mode(
+            predict_mode=config.predict_mode,
+            use_truth_velocity_predict=config.use_truth_velocity_predict,
+            use_dynamics_predict=config.use_dynamics_predict,
+        ),
         use_truth_velocity_predict=config.use_truth_velocity_predict,
+        use_dynamics_predict=config.use_dynamics_predict,
+        dynamics_config=config.dynamics_config(),
+        dynamics_sigma_acc_km=config.dynamics_sigma_acc_km,
+        dynamics_use_hw2_process_noise=config.dynamics_use_hw2_process_noise,
         rng=meas_rng,
         policy=policy,
     )
@@ -320,6 +362,7 @@ def run_single_trial(
         timing_mean_m=timing["timing_mean_m"],
         timing_final_m=timing["timing_final_m"],
         timing_p95_m=timing["timing_p95_m"],
+        nis_median_dof=median_nis_per_dof(result),
     )
 
 
@@ -341,7 +384,7 @@ def run_monte_carlo(
 
     load_kernels(load_gps_frames=True)
     et0 = str_to_et(cfg.epoch_utc)
-    prop = LunarPropagator(et0, config=DynamicsConfig(), auto_load_kernels=False)
+    prop = LunarPropagator(et0, config=cfg.dynamics_config(), auto_load_kernels=False)
     traj = prop.propagate_preset(cfg.preset, duration_s=cfg.duration_s, step_s=cfg.step_s)
     timeline = compute_visibility_timeline(traj)
 
@@ -396,6 +439,7 @@ def run_pulsar_count_sweep(
             n_pulsars=n,
             policies=base.policies,
             randomize_offset=base.randomize_offset,
+            include_disturbances=base.include_disturbances,
         )
         results[n] = run_monte_carlo(cfg)
     return results
@@ -420,6 +464,76 @@ def run_toa_noise_sweep(
             n_pulsars=base.n_pulsars,
             policies=base.policies,
             randomize_offset=base.randomize_offset,
+            include_disturbances=base.include_disturbances,
         )
         results[sigma_us] = run_monte_carlo(cfg)
+    return results
+
+
+def run_process_noise_sweep(
+    pacc_values: tuple[float, ...],
+    *,
+    base_config: MonteCarloConfig | None = None,
+) -> dict[float, MonteCarloResult]:
+    """Monte Carlo vs constant CWNA ``process_noise_accel`` (m²/s³)."""
+    base = base_config or MonteCarloConfig()
+    results: dict[float, MonteCarloResult] = {}
+    for pacc in pacc_values:
+        cfg = MonteCarloConfig(
+            n_trials=base.n_trials,
+            seed=base.seed,
+            preset=base.preset,
+            epoch_utc=base.epoch_utc,
+            duration_s=base.duration_s,
+            step_s=base.step_s,
+            toa_sigma_s=base.toa_sigma_s,
+            gnss_sigma_m=base.gnss_sigma_m,
+            lonet_sigma_m=base.lonet_sigma_m,
+            n_pulsars=base.n_pulsars,
+            policies=base.policies,
+            randomize_offset=base.randomize_offset,
+            offset_min_m=base.offset_min_m,
+            offset_max_m=base.offset_max_m,
+            position_offset_m=base.position_offset_m,
+            process_noise_accel=pacc,
+            gravity_scaled_q=False,
+            use_truth_velocity_predict=base.use_truth_velocity_predict,
+            include_disturbances=base.include_disturbances,
+        )
+        results[pacc] = run_monte_carlo(cfg)
+    return results
+
+
+def run_gravity_q_scale_sweep(
+    scales: tuple[float, ...],
+    *,
+    base_config: MonteCarloConfig | None = None,
+) -> dict[float, MonteCarloResult]:
+    """Monte Carlo vs ``q_accel_scale`` with periapsis-aware ``gravity_scaled_q``."""
+    base = base_config or MonteCarloConfig()
+    results: dict[float, MonteCarloResult] = {}
+    for scale in scales:
+        cfg = MonteCarloConfig(
+            n_trials=base.n_trials,
+            seed=base.seed,
+            preset=base.preset,
+            epoch_utc=base.epoch_utc,
+            duration_s=base.duration_s,
+            step_s=base.step_s,
+            toa_sigma_s=base.toa_sigma_s,
+            gnss_sigma_m=base.gnss_sigma_m,
+            lonet_sigma_m=base.lonet_sigma_m,
+            n_pulsars=base.n_pulsars,
+            policies=base.policies,
+            randomize_offset=base.randomize_offset,
+            offset_min_m=base.offset_min_m,
+            offset_max_m=base.offset_max_m,
+            position_offset_m=base.position_offset_m,
+            process_noise_accel=base.process_noise_accel,
+            gravity_scaled_q=True,
+            q_accel_scale=scale,
+            use_truth_velocity_predict=base.use_truth_velocity_predict,
+            include_disturbances=base.include_disturbances,
+        )
+        results[scale] = run_monte_carlo(cfg)
     return results

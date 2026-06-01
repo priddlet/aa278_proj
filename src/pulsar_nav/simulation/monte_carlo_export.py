@@ -59,8 +59,27 @@ def _config_rows(config: MonteCarloConfig, *, campaign: str, blackout_fraction: 
         },
         {
             "campaign": campaign,
+            "parameter": "use_dynamics_predict",
+            "value": config.use_dynamics_predict,
+        },
+        {
+            "campaign": campaign,
+            "parameter": "predict_mode",
+            "value": (
+                str(config.predict_mode)
+                if config.predict_mode is not None
+                else ""
+            ),
+        },
+        {
+            "campaign": campaign,
             "parameter": "process_noise_accel",
             "value": config.process_noise_accel,
+        },
+        {
+            "campaign": campaign,
+            "parameter": "include_disturbances",
+            "value": config.include_disturbances,
         },
         {"campaign": campaign, "parameter": "lunanet_requirement_m", "value": LUNANET_REQUIREMENT_M},
     ]

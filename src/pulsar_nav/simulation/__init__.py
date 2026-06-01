@@ -15,6 +15,8 @@ from pulsar_nav.simulation.monte_carlo import (
     MonteCarloConfig,
     MonteCarloResult,
     run_monte_carlo,
+    run_gravity_q_scale_sweep,
+    run_process_noise_sweep,
     run_pulsar_count_sweep,
     run_toa_noise_sweep,
 )
@@ -30,6 +32,8 @@ __all__ = [
     "run_hybrid_ekf",
     "run_hybrid_on_propagated",
     "run_monte_carlo",
+    "run_gravity_q_scale_sweep",
+    "run_process_noise_sweep",
     "run_pulsar_count_sweep",
     "run_toa_noise_sweep",
     "run_xnav_only_on_propagated",

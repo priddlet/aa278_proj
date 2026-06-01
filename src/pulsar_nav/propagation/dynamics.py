@@ -24,6 +24,30 @@ SRP_SCALE = P0_N_M2 * AU_KM**2 * 1e-3
 MOON_J2 = 2.033e-4
 MOON_RADIUS_KM = 1737.4
 
+# HW2 P3 SRP truth spacecraft (gamma = C_R * A / m, course units in dynamics)
+HW2_SRP_CR = 1.8
+HW2_SRP_AREA_M2 = 1.0
+HW2_SRP_MASS_KG = 850.0
+DEFAULT_GAMMA_SRP = HW2_SRP_CR * HW2_SRP_AREA_M2 / HW2_SRP_MASS_KG
+
+
+def dynamics_config_for_sim(*, include_disturbances: bool = False) -> DynamicsConfig:
+    """
+    Shared force model for truth propagation and filter dynamics predict.
+
+    Baseline (HW2 P2): point-mass Moon + Earth + Sun indirect terms.
+    With disturbances (HW2 P3): add Moon J2 and SRP at ``DEFAULT_GAMMA_SRP``.
+    """
+    if not include_disturbances:
+        return DynamicsConfig(include_earth=True, include_sun=True)
+    return DynamicsConfig(
+        include_earth=True,
+        include_sun=True,
+        include_moon_j2=True,
+        include_srp=True,
+        gamma_srp=DEFAULT_GAMMA_SRP,
+    )
+
 
 @dataclass
 class DynamicsConfig:
@@ -40,6 +64,15 @@ class DynamicsConfig:
 def _inv_cube(vec: np.ndarray) -> np.ndarray:
     norm = np.linalg.norm(vec)
     return vec / norm**3
+
+
+def grad_inv_cube(vec: np.ndarray) -> np.ndarray:
+    """Jacobian of vec / |vec|^3 with respect to vec (3×3)."""
+    v = np.asarray(vec, dtype=float)
+    norm = np.linalg.norm(v)
+    if norm < 1e-12:
+        return np.zeros((3, 3))
+    return np.eye(3) / norm**3 - 3.0 * np.outer(v, v) / norm**5
 
 
 def moon_j2_acceleration(r_mci: np.ndarray) -> np.ndarray:
@@ -87,6 +120,61 @@ def acceleration_mci(
         acc += moon_j2_acceleration(r)
 
     return acc
+
+
+def acceleration_mci_jacobian_r(
+    r_mci: np.ndarray,
+    et: float,
+    config: DynamicsConfig,
+) -> np.ndarray:
+    """
+    Jacobian da/dr for MCI specific force (km/s² per km).
+
+    Point-mass Moon, indirect Earth/Sun, optional SRP; J2 via local FD if enabled.
+    """
+    r = np.asarray(r_mci, dtype=float)
+    j = -GM_MOON * grad_inv_cube(r)
+
+    if config.include_earth or config.include_sun:
+        if config.ephemeris_callback is not None:
+            r_earth, r_sun = config.ephemeris_callback(et)
+        else:
+            r_earth = body_position_mci("EARTH", et) if config.include_earth else None
+            r_sun = body_position_mci("SUN", et) if config.include_sun else None
+
+        if config.include_earth and r_earth is not None:
+            rho_e = r - r_earth
+            j += -GM_EARTH * grad_inv_cube(rho_e)
+
+        if config.include_sun and r_sun is not None:
+            rho_s = r - r_sun
+            j += -GM_SUN * grad_inv_cube(rho_s)
+            if config.include_srp and config.gamma_srp != 0.0:
+                j += -SRP_SCALE * config.gamma_srp * grad_inv_cube(rho_s)
+
+    if config.include_moon_j2:
+        eps = 1e-3
+        a0 = moon_j2_acceleration(r)
+        for i in range(3):
+            rp = r.copy()
+            rp[i] += eps
+            j[:, i] += (moon_j2_acceleration(rp) - a0) / eps
+
+    return j
+
+
+def dynamics_jacobian_mci(
+    r_mci: np.ndarray,
+    v_mci: np.ndarray,
+    et: float,
+    config: DynamicsConfig,
+) -> np.ndarray:
+    """6×6 Jacobian of [ṙ, v̇] = [v, a(r)] w.r.t. [r, v] in MCI."""
+    _ = v_mci  # velocity does not enter acceleration
+    j = np.zeros((6, 6))
+    j[0:3, 3:6] = np.eye(3)
+    j[3:6, 0:3] = acceleration_mci_jacobian_r(r_mci, et, config)
+    return j
 
 
 def dynamics_ode(

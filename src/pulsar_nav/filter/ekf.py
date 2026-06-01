@@ -13,6 +13,12 @@ from pulsar_nav.measurements.pseudorange import (
     pseudorange_residual,
 )
 from pulsar_nav.filter.consistency import normalized_innovation_squared
+from pulsar_nav.filter.dynamics_predict import full_state_transition
+from pulsar_nav.filter.hw2_process_noise import (
+    DEFAULT_DYNAMICS_SIGMA_ACC_KM,
+    process_noise_hw2,
+)
+from pulsar_nav.propagation.dynamics import DynamicsConfig
 from pulsar_nav.measurements.xnav import (
     XNAVMeasurement,
     measurement_jacobian,
@@ -46,8 +52,10 @@ class PulsarNavEKF:
 
     state: NavState
     covariance: np.ndarray
-    process_noise_accel: float = 1e-6  # m^2/s^3 (tunable)
-    process_noise_clock: float = 1.0  # m^2/s (clock random walk)
+    process_noise_accel: float = 1e-6  # m^2/s^3 (tunable; CV / truth_velocity)
+    process_noise_clock: float = 1.0  # m^2/s (clock random walk; CV)
+    dynamics_sigma_acc_km: float = DEFAULT_DYNAMICS_SIGMA_ACC_KM
+    dynamics_use_hw2_process_noise: bool = True
 
     last_nis: float = float("nan")
     last_dof: int = 0
@@ -137,6 +145,40 @@ class PulsarNavEKF:
         Q = self.process_noise(dt_s) if add_process_noise else 0.0
         self.state = NavState(vec)
         self.covariance = Phi @ self.covariance @ Phi.T + Q
+
+    def predict_dynamics(
+        self,
+        dt_s: float,
+        et: float,
+        *,
+        dynamics_config: DynamicsConfig | None = None,
+        use_hw2_process_noise: bool | None = None,
+        sigma_acc_km: float | None = None,
+    ) -> None:
+        """
+        Time update with MCI point-mass + third-body acceleration on the estimate.
+
+        Tier A: ``solve_ivp`` RK45 mean propagation + analytic STM (Φ̇ = JΦ) in MCI;
+        optional HW2-style CWNA process noise (σ_acc in km/s²/√s).
+        """
+        cfg = dynamics_config or DynamicsConfig()
+        phi, vec = full_state_transition(
+            self.state.position_m,
+            self.state.velocity_m_s,
+            self.state.clock_bias_m,
+            self.state.clock_drift_m_s,
+            et,
+            dt_s,
+            cfg,
+            NAV_STATE_DIM,
+        )
+        if use_hw2_process_noise if use_hw2_process_noise is not None else self.dynamics_use_hw2_process_noise:
+            sig = sigma_acc_km if sigma_acc_km is not None else self.dynamics_sigma_acc_km
+            q = process_noise_hw2(dt_s, sigma_acc_km=sig, nav_state_dim=NAV_STATE_DIM)
+        else:
+            q = self.process_noise(dt_s)
+        self.state = NavState(vec)
+        self.covariance = phi @ self.covariance @ phi.T + q
 
     def update(self, measurement: XNAVMeasurement) -> float:
         """Process one pulsar measurement; return innovation (m)."""

@@ -85,6 +85,7 @@ def run_policy(
             lonet_sigma_m=cfg["lonet_sigma_m"],
             process_noise_accel=cfg["process_noise_accel"],
             use_truth_velocity_predict=cfg["use_truth_velocity_predict"],
+            use_dynamics_predict=cfg.get("use_dynamics_predict", False),
             rng=np.random.default_rng(master.integers(0, 2**63 - 1)),
             policy=policy,
         )
@@ -112,6 +113,11 @@ def main() -> None:
     ap.add_argument("--gnss-sigma", type=float, default=15.0)
     ap.add_argument("--pacc", type=float, default=1e-4, help="constant process_noise_accel (m²/s³)")
     ap.add_argument("--filter-predict", action="store_true")
+    ap.add_argument(
+        "--dynamics-predict",
+        action="store_true",
+        help="MCI force-model predict (Moon + Earth + Sun)",
+    )
     args = ap.parse_args()
 
     load_kernels(load_gps_frames=True)
@@ -126,12 +132,18 @@ def main() -> None:
         gnss_sigma_m=args.gnss_sigma,
         lonet_sigma_m=15.0,
         process_noise_accel=args.pacc,
-        use_truth_velocity_predict=not args.filter_predict,
+        use_truth_velocity_predict=not args.filter_predict and not args.dynamics_predict,
+        use_dynamics_predict=args.dynamics_predict,
         offset_min=30_000.0,
         offset_max=100_000.0,
     )
 
-    predict_mode = "filter CV" if args.filter_predict else "truth-velocity"
+    if args.dynamics_predict:
+        predict_mode = "filter dynamics"
+    elif args.filter_predict:
+        predict_mode = "filter CV"
+    else:
+        predict_mode = "truth-velocity"
     bf = 100.0 * float(np.mean([s.in_blackout for s in timeline.samples]))
 
     print(
