@@ -12,9 +12,10 @@ Slide-ready figures for **Pulsar Hybrid Navigation for the Lunar Far Side**.
 
 Tables / Excel per navigation pipeline:
 
-- `results/presentation_truth_velocity.md` · `results/monte_carlo_truth_velocity.xlsx`
-- `results/presentation_filter_predict.md` · `results/monte_carlo_filter_predict.xlsx`
-- `results/presentation_INDEX.md` — master index
+- **Markdown + CSV:** `presentation/tables/truth_velocity/` and `presentation/tables/filter_predict/` (see `presentation/tables/INDEX.md`)
+- **Results summaries:** `results/presentation_truth_velocity.md` · `results/presentation_filter_predict.md`
+- **Spreadsheets:** `results/monte_carlo_truth_velocity.xlsx` · `results/monte_carlo_filter_predict.xlsx`
+- `results/presentation_INDEX.md` — figure index
 
 See [SIMULATION_LIMITATIONS.md](./SIMULATION_LIMITATIONS.md) before citing **absolute** km errors from the truth-velocity set.
 

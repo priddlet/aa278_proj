@@ -1,0 +1,7 @@
+predict_mode,n_msps,policy,final_mean_km,final_p95_km,blackout_mean_km
+truth_velocity,1,hybrid,1.424,1.587,20.852
+truth_velocity,1,xnav_only,55.861,79.175,94.45
+truth_velocity,3,hybrid,1.319,1.516,0.672
+truth_velocity,3,xnav_only,4.214,4.785,0.791
+truth_velocity,5,hybrid,1.14,1.225,0.453
+truth_velocity,5,xnav_only,2.442,2.592,0.534

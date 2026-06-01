@@ -52,6 +52,11 @@ def _config_rows(config: MonteCarloConfig, *, campaign: str, blackout_fraction: 
         {"campaign": campaign, "parameter": "offset_min_km", "value": config.offset_min_m / 1000.0},
         {"campaign": campaign, "parameter": "offset_max_km", "value": config.offset_max_m / 1000.0},
         {"campaign": campaign, "parameter": "policies", "value": ", ".join(p.value for p in config.policies)},
+        {
+            "campaign": campaign,
+            "parameter": "use_truth_velocity_predict",
+            "value": config.use_truth_velocity_predict,
+        },
         {"campaign": campaign, "parameter": "lunanet_requirement_m", "value": LUNANET_REQUIREMENT_M},
     ]
     if blackout_fraction is not None:

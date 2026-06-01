@@ -33,6 +33,10 @@ from pulsar_nav.simulation.monte_carlo_export import (
     MonteCarloExportBundle,
     export_monte_carlo_xlsx,
 )
+from pulsar_nav.simulation.presentation_tables import (
+    export_presentation_tables,
+    write_tables_index,
+)
 from pulsar_nav.simulation.policy import NavPolicy
 from pulsar_nav.simulation.presentation_runs import (
     collect_error_envelopes,
@@ -245,6 +249,7 @@ def build_nav_pipeline(
     n_env: int,
     duration_s: float,
     results_dir: Path,
+    tables_dir: Path,
 ) -> tuple[list[str], str]:
     """Monte Carlo figures for one predict mode."""
     from pulsar_nav.visualization.monte_carlo_plots import (
@@ -387,6 +392,16 @@ def build_nav_pipeline(
         )
         saved.append(f"mc_{args.preset}_toa_sweep.png")
 
+    tables_out = tables_dir / pipeline.slug
+    table_files = export_presentation_tables(
+        tables_out,
+        export_bundle,
+        preset=args.preset,
+        predict_label=pipeline.label,
+        predict_note=pipeline.short_note,
+    )
+    print(f"  Tables: {tables_out.relative_to(ROOT)}/ ({', '.join(table_files)})")
+
     try:
         xlsx = export_monte_carlo_xlsx(
             results_dir / f"monte_carlo_{pipeline.slug}.xlsx",
@@ -394,6 +409,9 @@ def build_nav_pipeline(
         )
         print(f"  Excel: {xlsx}")
         md_parts.append(f"\nSpreadsheet: `{xlsx.relative_to(ROOT)}`\n")
+        md_parts.append(
+            f"\nSlide tables: `presentation/tables/{pipeline.slug}/`\n"
+        )
     except ImportError as exc:
         print(f"  Excel skipped: {exc}")
 
@@ -426,7 +444,10 @@ def main() -> None:
     pres_root = Path(args.presentation_root) if args.presentation_root else ROOT / "figures" / "presentation"
     common_dir = pres_root / "common"
     results_dir = ROOT / "results"
+    tables_dir = ROOT / "presentation" / "tables"
     results_dir.mkdir(parents=True, exist_ok=True)
+    tables_dir.mkdir(parents=True, exist_ok=True)
+    index_pipeline_rows: list[tuple[str, str, str]] = []
 
     index_lines = [
         "# Presentation figure index",
@@ -453,11 +474,18 @@ def main() -> None:
             pipelines_to_run.append(PIPELINES["filter_predict"])
 
         for pipeline in pipelines_to_run:
+            predict_row = (
+                "Truth velocity between updates"
+                if pipeline.use_truth_velocity_predict
+                else "Filter CV predict only"
+            )
             index_lines.append(
                 f"| {pipeline.label} | `{pres_root / pipeline.slug}` | "
-                f"{'Truth velocity' if pipeline.use_truth_velocity_predict else 'Filter CV'} | "
-                f"MC stats; see `results/presentation_{pipeline.slug}.md` |"
+                f"{predict_row} | "
+                f"MC stats: `results/presentation_{pipeline.slug}.md` · "
+                f"tables: `presentation/tables/{pipeline.slug}/` |"
             )
+            index_pipeline_rows.append((pipeline.slug, pipeline.label, predict_row))
             build_nav_pipeline(
                 pres_root / pipeline.slug,
                 args,
@@ -466,7 +494,16 @@ def main() -> None:
                 n_env=n_env,
                 duration_s=duration_s,
                 results_dir=results_dir,
+                tables_dir=tables_dir,
             )
+
+        if index_pipeline_rows:
+            write_tables_index(
+                tables_dir / "INDEX.md",
+                preset=args.preset,
+                pipelines=index_pipeline_rows,
+            )
+            print(f"\nWrote {tables_dir / 'INDEX.md'}")
 
     index_path = results_dir / "presentation_INDEX.md"
     index_lines.extend(
