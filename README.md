@@ -80,7 +80,7 @@ python scripts/demo_multi_pulsar.py
 # XNAV EKF on propagated ELFO/LLO truth (Week 7 integration)
 python scripts/demo_xnav_with_truth.py --preset elfo --duration 6 --no-show
 
-# GNSS blackout + LunaNet visibility on ELFO (30 hr orbit)
+# GNSS blackout + LunaNet visibility on HW2 ELFO (default 30 hr simulation arc)
 python scripts/demo_blackout_elo.py --preset elfo --duration 30 --no-show
 
 # Validate visibility vs lecture anchors (GNSS PRN count, orbit phase, LunaNet)

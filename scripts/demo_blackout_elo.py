@@ -12,6 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from pulsar_nav.constants import elfo_orbit_summary, elfo_orbital_period_s
 from pulsar_nav.propagation.dynamics import DynamicsConfig
 from pulsar_nav.propagation.propagator import LunarPropagator
 from pulsar_nav.spice.ephemeris import str_to_et
@@ -23,7 +24,12 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="ELFO visibility and blackout analysis")
     p.add_argument("--preset", choices=("elfo", "llo"), default="elfo")
     p.add_argument("--epoch", default="2026-01-15T12:00:00")
-    p.add_argument("--duration", type=float, default=30.0, help="Hours (one ELFO period)")
+    p.add_argument(
+        "--duration",
+        type=float,
+        default=30.0,
+        help="Simulation length (hours); default 30 h ≈ 2.3 HW2 ELFO revolutions (T≈13.2 h)",
+    )
     p.add_argument("--step", type=float, default=120.0)
     p.add_argument("--no-show", action="store_true")
     p.add_argument("--save-dir", type=str, default=None)
@@ -41,8 +47,12 @@ def main() -> None:
     )
     timeline = compute_visibility_timeline(traj)
 
+    t_hr = elfo_orbital_period_s() / 3600.0
     print(f"Visibility analysis — {args.preset.upper()}")
-    print(f"  duration: {args.duration:.1f} hr   step: {args.step:.0f} s")
+    if args.preset == "elfo":
+        print(f"  orbit: {elfo_orbit_summary()}")
+        print(f"  revolutions in arc: {args.duration / t_hr:.2f}")
+    print(f"  simulation duration: {args.duration:.1f} hr   step: {args.step:.0f} s")
     print(f"  blackout fraction: {100.0 * timeline.blackout_fraction:.1f}%")
     print(f"  total blackout time: {timeline.total_blackout_s / 3600.0:.2f} hr")
     print(f"  number of blackout windows: {len(timeline.windows)}")

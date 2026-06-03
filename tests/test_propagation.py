@@ -50,6 +50,28 @@ def test_elfo_propagation_radii(spice_loaded):
 
 
 @pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")
+def test_icrs_mci_frame_roundtrip_and_velocity(spice_loaded):
+    """ICRS ↔ MCI conversions match truth propagator storage."""
+    from pulsar_nav.measurements.pseudorange import icrs_position_to_mci_km
+    from pulsar_nav.propagation.propagator import LunarPropagator
+    from pulsar_nav.spice.ephemeris import (
+        icrs_position_from_mci_km,
+        icrs_velocity_from_mci_km_s,
+        str_to_et,
+    )
+
+    et0 = str_to_et("2026-01-15T12:00:00")
+    prop = LunarPropagator(et0, config=DynamicsConfig(), auto_load_kernels=False)
+    traj = prop.propagate_preset("elfo", duration_s=6 * 3600.0, step_s=120.0)
+    for i in range(len(traj.et)):
+        r_mci = icrs_position_to_mci_km(traj.position_icrs_m[i], traj.et[i])
+        pos_back = icrs_position_from_mci_km(r_mci, traj.et[i]) * 1000.0
+        assert np.linalg.norm(pos_back - traj.position_icrs_m[i]) < 1e-6
+        v_recon = icrs_velocity_from_mci_km_s(traj.velocity_mci_km_s[i], traj.et[i]) * 1000.0
+        assert np.linalg.norm(v_recon - traj.velocity_icrs_m_s[i]) < 0.1
+
+
+@pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")
 def test_acceleration_finite(spice_loaded):
     from pulsar_nav.spice.ephemeris import str_to_et
 

@@ -26,6 +26,8 @@ from pulsar_nav.simulation.monte_carlo_export import (
     MonteCarloExportBundle,
     export_monte_carlo_xlsx,
 )
+from dataclasses import replace
+
 from pulsar_nav.constants import DEFAULT_MC_DURATION_S
 from pulsar_nav.simulation.policy import NavPolicy
 from pulsar_nav.spice.kernels import load_kernels
@@ -144,15 +146,8 @@ def main() -> None:
         print(result.summary_table())
 
         if args.stress_coast:
-            coast_cfg = MonteCarloConfig(
-                n_trials=n_trials,
-                seed=args.seed,
-                preset=cfg.preset,
-                duration_s=cfg.duration_s,
-                step_s=cfg.step_s,
-                toa_sigma_s=cfg.toa_sigma_s,
-                n_pulsars=cfg.n_pulsars,
-                use_truth_velocity_predict=use_truth_vel,
+            coast_cfg = replace(
+                cfg,
                 policies=(
                     NavPolicy.HYBRID,
                     NavPolicy.XNAV_ONLY,
@@ -167,14 +162,9 @@ def main() -> None:
         print("\nPulsar count sweep (hybrid + xnav)...")
         pulsar_sweep = run_pulsar_count_sweep(
             (1, 3, 5),
-            base_config=MonteCarloConfig(
-                n_trials=n_trials,
+            base_config=replace(
+                cfg,
                 seed=args.seed + 10,
-                preset=cfg.preset if not args.compare_elfo else "elfo",
-                duration_s=cfg.duration_s,
-                step_s=cfg.step_s,
-                toa_sigma_s=cfg.toa_sigma_s,
-                use_truth_velocity_predict=use_truth_vel,
                 policies=(NavPolicy.HYBRID, NavPolicy.XNAV_ONLY),
             ),
         )
@@ -190,15 +180,7 @@ def main() -> None:
         print("\nTOA noise sweep...")
         toa_sweep = run_toa_noise_sweep(
             (0.1, 1.0, 10.0),
-            base_config=MonteCarloConfig(
-                n_trials=n_trials,
-                seed=args.seed + 20,
-                preset=cfg.preset if not args.compare_elfo else "elfo",
-                duration_s=cfg.duration_s,
-                step_s=cfg.step_s,
-                n_pulsars=args.pulsars,
-                use_truth_velocity_predict=use_truth_vel,
-            ),
+            base_config=replace(cfg, seed=args.seed + 20),
         )
         export_bundle.toa_sweep = toa_sweep
         for sig, res in toa_sweep.items():

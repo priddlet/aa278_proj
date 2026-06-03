@@ -97,6 +97,10 @@ Moon-centered specific force (km/s²):
 
 Optional: Moon J2, solar radiation pressure. Integrated with `scipy.integrate.solve_ivp` (`propagator.py`). Earth/Sun positions from SPICE DE440.
 
+**Frames (verified):** Truth integrates in **MCI**; stored **ICRS** uses `r_icrs = r_moon_ssb + r_mci` and `v_icrs = v_moon + v_mci` (`spice/ephemeris.py`). Filter dynamics predict propagates in MCI then maps back with the same formulas (`filter/dynamics_predict.py`). Pseudorange Jacobians use `icrs_position_to_mci_km` at fixed `et` (Moon ephemeris not in **H**). **STM:** 6×6 `Phi` from MCI is applied to ICRS position/velocity errors (Moon translation cancels to first order; matches numeric ICRS propagation within ~5% over 60 s in tests).
+
+**J2 caveat:** `moon_j2_acceleration` uses **MCI/J2000** axes, not Moon principal-axis (MOON_PA). Acceptable for default sim (J2 off); with `--disturbed-dynamics`, compare cautiously to HW2 body-fixed J2 if tight agreement is required.
+
 **Initial state:** HW2 frozen-orbit COE are defined in the Earth orbital-plane (OP) frame. `mci_to_op_rotation` (HW2 P2.3) maps OP → MCI via block-diagonal rotation built from Earth `r×v` and the lunar pole — not `MOON_PA` `sxform` (see `spice/ephemeris.py`).
 
 **ICRS truth position:**

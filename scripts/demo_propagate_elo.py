@@ -20,7 +20,7 @@ from pulsar_nav.spice.ephemeris import str_to_et
 def main() -> None:
     load_kernels()
     et0 = str_to_et("2026-01-15T12:00:00")
-    # ~30 hr period ELFO: sample one orbit in 2 hr steps
+    # 30 hr simulation arc (~2.3 HW2 ELFO revolutions; T≈13.2 h at a=6541.4 km)
     duration_s = 30.0 * 3600.0
     step_s = 120.0
 

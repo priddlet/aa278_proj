@@ -149,16 +149,7 @@ class LunarPropagator:
         for i, et_i in enumerate(et):
             moon_pos = spice_ephem.moon_position_icrs_km(et_i)
             pos_icrs[i] = (moon_pos + pos_mci[i]) * 1000.0
-            # Moon velocity for full ICRS velocity (finite difference of ephemeris)
-            if i == 0 and len(et) > 1:
-                dt = et[1] - et[0]
-            elif i == len(et) - 1:
-                dt = et[-1] - et[-2]
-            else:
-                dt = et[i + 1] - et[i - 1]
-            moon_vel = (
-                spice_ephem.moon_position_icrs_km(et_i + dt) - spice_ephem.moon_position_icrs_km(et_i - dt)
-            ) / (2.0 * dt)
+            moon_vel = spice_ephem.moon_velocity_icrs_km_s(et_i)
             vel_icrs[i] = (moon_vel + vel_mci[i]) * 1000.0
 
         return PropagatedTrajectory(

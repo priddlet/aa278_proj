@@ -19,5 +19,22 @@ def elfo_orbital_period_s(sma_km: float = ELFO_SMA_KM) -> float:
     return 2.0 * math.pi * math.sqrt(sma_km**3 / GM_MOON_KM3_S2)
 
 
+def elfo_apsides_km(
+    sma_km: float = ELFO_SMA_KM, *, eccentricity: float = 0.6
+) -> tuple[float, float]:
+    """Perilune and apoapsis radii (km) for the default HW2 ELFO eccentricity."""
+    return sma_km * (1.0 - eccentricity), sma_km * (1.0 + eccentricity)
+
+
+def elfo_orbit_summary(*, eccentricity: float = 0.6) -> str:
+    """One-line orbit identity for plots and slides (HW2 case 1, not LCRNS 30 h)."""
+    rp, ra = elfo_apsides_km(eccentricity=eccentricity)
+    t_hr = elfo_orbital_period_s() / 3600.0
+    return (
+        f"HW2 ELFO (a={ELFO_SMA_KM:.0f} km, e={eccentricity:.1f}, "
+        f"T≈{t_hr:.1f} h; rp≈{rp:.0f} km, ra≈{ra:.0f} km)"
+    )
+
+
 # Recommended Monte Carlo arc: ≥2 full orbits for stable blackout statistics.
 DEFAULT_MC_DURATION_S = 2.0 * elfo_orbital_period_s()

@@ -31,6 +31,22 @@ Quick check (26.4 hr ELFO, 5 MSPs, 1 µs, 5 trials):
 
 Real far-side XNAV (SEXTANT-class) is not modeled to sub-km with 30–100 km initial errors; frame results as **continuity vs GNSS coast**, not NICER steady-state meters.
 
+**TOA / pulsar sweeps:** Until regenerated after the sweep fix (May 2026), `toa_sweep.csv` and `pulsar_sweep.csv` under all three pipeline folders were **identical** because sweep helpers did not copy `predict_mode` from `base_config` (everything defaulted to truth-velocity). Same class of bug affected `run_preset_comparison` and partial `MonteCarloConfig(...)` rebuilds in `demo_monte_carlo` / `build_presentation_assets` — fixed to use `dataclasses.replace`. Re-run `build_presentation_assets.py` per pipeline.
+
+**Audit checklist (not bugs, but easy to misread):**
+
+| Item | Status |
+|------|--------|
+| Measurements synthesized from **truth position** | By design (`hybrid_run`); optimistic |
+| **Epoch 0** no EKF update → dominates full-arc RMS | Use **Steady μ / Steady RMS** (last 10%) in tables |
+| `demo_monte_carlo.py` has `--no-truth-velocity` only (CV), no `--dynamics-predict` | Use `build_presentation_assets --pipelines filter_dynamics` |
+| `meets_lunanet_p95` uses **final p95**, not steady-state | Pitch target is relay timing, not XNAV final |
+| `select_pulsars(n)` = first **n** catalog entries | Not geometry-optimized subset |
+| GNSS visibility / PRN gate uses **truth** SC position | Same as measurements |
+| Regenerate sweeps/plots after May 2026 config fixes | Required |
+
+**Arc metrics:** Full-arc **RMS** is dominated by **epoch 0** (no EKF update; error = initial offset). Monte Carlo tables also report **Steady μ** and **Steady RMS** over the **last 10%** of epochs — a fairer compare across predict modes. Regenerate with `build_presentation_assets.py` or `demo_monte_carlo.py`.
+
 To stress-test more honestly:
 
 ```bash

@@ -1,0 +1,10 @@
+predict_mode,toa_sigma_us,policy,final_mean_km,final_p95_km,blackout_mean_km
+filter_dynamics,0.1,xnav_only,0.012,0.021,0.018
+filter_dynamics,0.1,gnss_only,0.01,0.017,0.017
+filter_dynamics,0.1,hybrid,0.011,0.017,0.017
+filter_dynamics,1.0,xnav_only,0.015,0.023,0.094
+filter_dynamics,1.0,gnss_only,0.014,0.029,0.092
+filter_dynamics,1.0,hybrid,0.012,0.022,0.091
+filter_dynamics,10.0,xnav_only,0.016,0.025,0.471
+filter_dynamics,10.0,gnss_only,0.014,0.027,0.387
+filter_dynamics,10.0,hybrid,0.011,0.019,0.383

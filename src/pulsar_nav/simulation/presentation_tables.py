@@ -6,7 +6,7 @@ import csv
 import math
 from pathlib import Path
 
-from pulsar_nav.simulation.monte_carlo import MonteCarloResult
+from pulsar_nav.simulation.monte_carlo import STEADY_STATE_ARC_FRACTION, MonteCarloResult
 from pulsar_nav.simulation.monte_carlo_export import (
     MonteCarloExportBundle,
     _summary_row,
@@ -48,8 +48,12 @@ def _main_summary_md(
         "_Timing: |b_rx−b_truth| (m) averaged over GNSS/LunaNet pseudorange epochs only. "
         "XNAV-only and MSP-only blackout do not constrain b in H._",
         "",
-        "| Policy | Final mean (km) | Final p95 (km) | RMS (km) | Blackout μ (km) | Non-blackout μ (km) | |b| mean (m) | |b| p95 (m) |",
-        "|--------|-----------------|----------------|----------|-----------------|---------------------|------------|-----------|",
+        f"_Steady μ / Steady RMS: mean and RMS over the last "
+        f"{int(STEADY_STATE_ARC_FRACTION * 100)}% of arc epochs (post-convergence; "
+        f"excludes epoch-0 init spike)._",
+        "",
+        "| Policy | Final mean (km) | Final p95 (km) | RMS (km) | Steady μ (km) | Steady RMS (km) | Blackout μ (km) | Non-blackout μ (km) | |b| mean (m) | |b| p95 (m) |",
+        "|--------|-----------------|----------------|----------|---------------|-----------------|-----------------|---------------------|------------|-----------|",
     ]
     for pol in cfg.policies:
         s = result.by_policy[pol]
@@ -61,7 +65,8 @@ def _main_summary_md(
             t_p95 = f"{s.timing_p95_m:.2f}" if math.isfinite(s.timing_p95_m) else "—"
         lines.append(
             f"| **{pol.value}** | {s.final_mean_m / 1e3:.2f} | {s.final_p95_m / 1e3:.2f} | "
-            f"{s.rms_error_m / 1e3:.2f} | {s.blackout_mean_m / 1e3:.2f} | "
+            f"{s.rms_error_m / 1e3:.2f} | {s.steady_state_mean_m / 1e3:.2f} | "
+            f"{s.steady_state_rms_m / 1e3:.2f} | {s.blackout_mean_m / 1e3:.2f} | "
             f"{s.non_blackout_mean_m / 1e3:.2f} | {t_mean} | {t_p95} |"
         )
     lines.append("")

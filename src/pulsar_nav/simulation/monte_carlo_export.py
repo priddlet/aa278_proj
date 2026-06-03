@@ -113,6 +113,8 @@ def _trial_row(campaign: str, trial: TrialMetrics) -> dict[str, Any]:
         "timing_mean_m": trial.timing_mean_m,
         "timing_final_m": trial.timing_final_m,
         "timing_p95_m": trial.timing_p95_m,
+        "steady_state_mean_km": trial.steady_state_mean_m / 1000.0,
+        "steady_state_rms_km": trial.steady_state_rms_m / 1000.0,
     }
 
 
@@ -132,6 +134,8 @@ def _summary_row(campaign: str, stats: PolicyStats) -> dict[str, Any]:
         "timing_mean_m": stats.timing_mean_m,
         "timing_final_m": stats.timing_final_m,
         "timing_p95_m": stats.timing_p95_m,
+        "steady_state_mean_km": stats.steady_state_mean_m / 1000.0,
+        "steady_state_rms_km": stats.steady_state_rms_m / 1000.0,
     }
 
 

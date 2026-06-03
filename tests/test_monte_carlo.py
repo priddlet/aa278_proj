@@ -8,8 +8,12 @@ from pulsar_nav.simulation.monte_carlo import (
     MonteCarloConfig,
     aggregate_policy_stats,
     run_monte_carlo,
+    run_preset_comparison,
+    run_toa_noise_sweep,
     select_pulsars,
+    steady_state_arc_metrics,
 )
+from pulsar_nav.simulation.predict_mode import PredictMode
 from pulsar_nav.simulation.policy import NavPolicy, PolicySegment
 from pulsar_nav.spice.kernels import resolve_kernel_dir
 
@@ -29,6 +33,70 @@ def spice_loaded():
     from pulsar_nav.spice.kernels import load_kernels
 
     load_kernels(load_gps_frames=True)
+
+
+def test_preset_comparison_preserves_predict_mode(monkeypatch):
+    captured: list[MonteCarloConfig] = []
+
+    def fake_run(cfg: MonteCarloConfig, *, propagate_once: bool = True):
+        captured.append(cfg)
+        from pulsar_nav.simulation.monte_carlo import MonteCarloResult
+
+        return MonteCarloResult(config=cfg, trials=[], by_policy={})
+
+    monkeypatch.setattr(
+        "pulsar_nav.simulation.monte_carlo.run_monte_carlo",
+        fake_run,
+    )
+    base = MonteCarloConfig(
+        n_trials=1,
+        predict_mode=PredictMode.DYNAMICS,
+        use_truth_velocity_predict=False,
+        use_dynamics_predict=True,
+        include_disturbances=True,
+    )
+    run_preset_comparison(("elfo", "llo"), base)
+    assert len(captured) == 2
+    assert all(c.predict_mode == PredictMode.DYNAMICS for c in captured)
+    assert all(c.include_disturbances for c in captured)
+
+
+def test_toa_sweep_preserves_predict_mode(monkeypatch):
+    """Sweep configs must inherit predict_mode from base (not default truth_vel)."""
+    captured: list[MonteCarloConfig] = []
+
+    def fake_run(cfg: MonteCarloConfig, *, propagate_once: bool = True):
+        captured.append(cfg)
+        from pulsar_nav.simulation.monte_carlo import MonteCarloResult
+
+        return MonteCarloResult(config=cfg, trials=[], by_policy={})
+
+    monkeypatch.setattr(
+        "pulsar_nav.simulation.monte_carlo.run_monte_carlo",
+        fake_run,
+    )
+    base = MonteCarloConfig(
+        n_trials=1,
+        predict_mode=PredictMode.CV,
+        use_truth_velocity_predict=False,
+        use_dynamics_predict=False,
+    )
+    run_toa_noise_sweep((1.0,), base_config=base)
+    assert len(captured) == 1
+    assert captured[0].predict_mode == PredictMode.CV
+    assert captured[0].use_truth_velocity_predict is False
+
+
+def test_steady_state_arc_metrics_last_ten_percent():
+    """Tail uses last 10% of epochs; epoch-0 spike excluded for n=100."""
+    errs = np.zeros(100)
+    errs[0] = 1000.0
+    errs[1:] = 0.1
+    mean_m, rms_m = steady_state_arc_metrics(errs)
+    assert mean_m == pytest.approx(0.1)
+    assert rms_m == pytest.approx(0.1)
+    nan_mean, nan_rms = steady_state_arc_metrics(np.array([]))
+    assert np.isnan(nan_mean) and np.isnan(nan_rms)
 
 
 def test_select_pulsars_subset():
@@ -55,6 +123,8 @@ def test_aggregate_policy_stats():
             n_pulsars=5,
             toa_sigma_s=1e-4,
             position_offset_m=50e3,
+            steady_state_mean_m=1.0,
+            steady_state_rms_m=1.5,
         ),
         TrialMetrics(
             trial_id=1,
@@ -69,10 +139,14 @@ def test_aggregate_policy_stats():
             n_pulsars=5,
             toa_sigma_s=1e-4,
             position_offset_m=60e3,
+            steady_state_mean_m=4.0,
+            steady_state_rms_m=4.5,
         ),
     ]
     stats = aggregate_policy_stats(trials, NavPolicy.HYBRID)
     assert stats.final_mean_m == 15.0
+    assert stats.steady_state_mean_m == 2.5
+    assert stats.steady_state_rms_m == 3.0
     assert stats.n_trials == 2
     assert stats.meets_lunanet_p95 is False
 

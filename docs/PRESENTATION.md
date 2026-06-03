@@ -47,11 +47,19 @@ python scripts/demo_monte_carlo.py --trials 20 --no-show
 python scripts/demo_monte_carlo.py --trials 20 --no-truth-velocity --no-show
 ```
 
+## Orbit identity (do not confuse with LCRNS)
+
+Truth preset **`elfo`** is **AA278 HW2 case 1** (`propagator.elfo_initial_coe_op`): **a = 6541.4 km**, **e = 0.6** → **rp ≈ 2617 km**, **ra ≈ 10 466 km**, **T ≈ 13.2 h** (two-body at lunar GM). This is **not** the LCRNS 30-h ELFO (a ≈ 11 300 km, apoapsis ≈ 19 000 km, one revolution per 30 h).
+
+Default visibility figures use a **30-h simulation arc** (~**2.3** revolutions), so the timeline shows **two** distinct far-side occultations. Slide label: **“ELFO visibility — 30-h simulation (HW2 case 1, T ≈ 13.2 h)”** — not “LCRNS reference ELFO.”
+
+**Blackout fraction:** policy/MC stats quote **~64%** on the **26.4 h** arc (`2×T`, `DEFAULT_MC_DURATION_S`). The 30-h visibility plot can differ slightly (~few %) because the arc is not an integer number of revolutions; cite **64%** only next to **26.4 h** MC results.
+
 ## Recommended slide order
 
 1. **Problem** — `common/elfo_orbit_blackout_3d.png` or `elfo_orbit_blackout_xy.png`
 2. **Three scenarios** — `common/elfo_orbit_{xnav_only,gnss_only,hybrid}.png` + `elfo_segments_*.png`
-3. **Truth orbit** — `common/elfo_truth_propagation.png`
+3. **Truth orbit** — `common/elfo_truth_propagation.png` (HW2 ELFO; state **T ≈ 13.2 h**, not 30 h)
 4. **Policy comparison (pick one pipeline)**  
    - Optimistic / clean: `truth_velocity/mc_elfo_all_policies_propagation.png`  
    - Realistic dynamics: `filter_predict/mc_elfo_all_policies_propagation.png`

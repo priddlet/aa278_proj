@@ -1,8 +1,8 @@
-## Monte Carlo — ELFO (Filter CV predict)
+## Monte Carlo — ELFO (Filter dynamics predict)
 
-EKF predict: **Filter CV predict** · Arc: **26.4 hr** · Trials: **20** · TOA σ: **1.0 µs** · pulsars: **all (5)**
+EKF predict: **Filter dynamics predict** · Arc: **26.4 hr** · Trials: **20** · TOA σ: **1.0 µs** · pulsars: **all (5)**
 
-_EKF constant-velocity predict only; more realistic dynamics stress._
+_EKF RK45+STM predict (HW2 Tier A); σ_acc km/s²/√s process noise._
 
 Blackout fraction: **64.1%**
 
@@ -12,6 +12,6 @@ _Steady μ / Steady RMS: mean and RMS over the last 10% of arc epochs (post-conv
 
 | Policy | Final mean (km) | Final p95 (km) | RMS (km) | Steady μ (km) | Steady RMS (km) | Blackout μ (km) | Non-blackout μ (km) | |b| mean (m) | |b| p95 (m) |
 |--------|-----------------|----------------|----------|---------------|-----------------|-----------------|---------------------|------------|-----------|
-| **xnav_only** | 7.39 | 7.59 | 3.50 | 2.33 | 2.91 | 1.24 | 2.80 | — | — |
-| **gnss_only** | 10.44 | 10.64 | 680.18 | 2.36 | 3.03 | 1.23 | 808.91 | 532626.48 | 1873227.87 |
-| **hybrid** | 3.09 | 3.17 | 2.78 | 2.27 | 2.81 | 1.23 | 1.04 | 578.01 | 2201.28 |
+| **xnav_only** | 0.02 | 0.02 | 2.33 | 0.06 | 0.07 | 0.09 | 0.35 | — | — |
+| **gnss_only** | 0.01 | 0.03 | 2.36 | 0.05 | 0.07 | 0.09 | 0.48 | 119.90 | 453.61 |
+| **hybrid** | 0.01 | 0.02 | 2.33 | 0.05 | 0.06 | 0.09 | 0.29 | 13.25 | 45.54 |

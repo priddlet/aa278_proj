@@ -1,7 +1,7 @@
 predict_mode,n_msps,policy,final_mean_km,final_p95_km,blackout_mean_km
-filter_predict,1,hybrid,1.424,1.587,20.852
-filter_predict,1,xnav_only,5.696,5.809,80.969
-filter_predict,3,hybrid,1.319,1.516,0.672
-filter_predict,3,xnav_only,5.415,5.564,0.665
-filter_predict,5,hybrid,1.14,1.225,0.453
-filter_predict,5,xnav_only,3.737,3.87,0.455
+filter_predict,1,hybrid,2.963,3.919,5923.803
+filter_predict,1,xnav_only,24501.212,100044.231,1326515.079
+filter_predict,3,hybrid,3.907,4.131,2.63
+filter_predict,3,xnav_only,13.65,13.865,2.633
+filter_predict,5,hybrid,3.111,3.213,1.233
+filter_predict,5,xnav_only,7.38,7.543,1.234

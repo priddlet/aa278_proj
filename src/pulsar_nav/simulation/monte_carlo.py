@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 
 import numpy as np
@@ -25,6 +25,28 @@ from pulsar_nav.visibility.blackout import VisibilityTimeline, compute_visibilit
 
 # LunaNet far-side positioning target from pitch / HW2 reference (meters).
 LUNANET_REQUIREMENT_M = 13.43
+
+# Tail fraction for steady-state arc metrics (last 10% of epochs; excludes t=0 spike).
+STEADY_STATE_ARC_FRACTION = 0.10
+
+
+def steady_state_arc_metrics(
+    errors_m: np.ndarray,
+    *,
+    fraction: float = STEADY_STATE_ARC_FRACTION,
+) -> tuple[float, float]:
+    """
+    Mean and RMS of position error over the last ``fraction`` of the arc.
+
+    Uses at least one epoch. For default 26.4 hr / 120 s steps (~792 epochs),
+    the tail is ~79 samples and does not include the no-update epoch 0.
+    """
+    e = np.asarray(errors_m, dtype=float).ravel()
+    if e.size == 0:
+        return float("nan"), float("nan")
+    k = max(1, int(e.size * fraction))
+    tail = e[-k:]
+    return float(np.mean(tail)), float(np.sqrt(np.mean(tail**2)))
 
 
 class MonteCarloSweep(str, Enum):
@@ -94,6 +116,8 @@ class TrialMetrics:
     timing_final_m: float = float("nan")
     timing_p95_m: float = float("nan")
     nis_median_dof: float = float("nan")
+    steady_state_mean_m: float = float("nan")
+    steady_state_rms_m: float = float("nan")
 
 
 @dataclass
@@ -114,6 +138,8 @@ class PolicyStats:
     timing_final_m: float = float("nan")
     timing_p95_m: float = float("nan")
     nis_median_dof: float = float("nan")
+    steady_state_mean_m: float = float("nan")
+    steady_state_rms_m: float = float("nan")
 
     @property
     def final_mean_km(self) -> float:
@@ -148,7 +174,7 @@ class MonteCarloResult:
             f"pulsars={self.config.n_pulsars or 'all'}",
             "",
             f"{'Policy':<12} {'Final mean':>12} {'Final p95':>12} "
-            f"{'RMS':>10} {'Blackout μ':>12} {'|b| μ PR':>10} {'<13.43m p95':>12}",
+            f"{'RMS':>10} {'Steady RMS':>11} {'Blackout μ':>12} {'|b| μ PR':>10} {'<13.43m p95':>12}",
         ]
         for pol in self.config.policies:
             s = self.by_policy[pol]
@@ -160,10 +186,13 @@ class MonteCarloResult:
             )
             lines.append(
                 f"{pol.value:<12} {s.final_mean_m/1e3:>10.2f} km {s.final_p95_m/1e3:>10.2f} km "
-                f"{s.rms_error_m/1e3:>8.2f} km {s.blackout_mean_m/1e3:>10.2f} km {t_mu:>10} {ok:>12}"
+                f"{s.rms_error_m/1e3:>8.2f} km {s.steady_state_rms_m/1e3:>9.2f} km "
+                f"{s.blackout_mean_m/1e3:>10.2f} km {t_mu:>10} {ok:>12}"
             )
+        pct = int(STEADY_STATE_ARC_FRACTION * 100)
         lines.append(
             f"\nLunaNet reference: {LUNANET_REQUIREMENT_M:.2f} m (pitch)"
+            f"\nSteady RMS: last {pct}% of arc (excludes epoch-0 init spike)."
             "\n|b| μ PR: mean |b_rx−b_truth| on GNSS/LunaNet pseudorange epochs only "
             "(XNAV-only / MSP-only blackout: clock not in H)."
         )
@@ -211,26 +240,7 @@ def run_preset_comparison(
     base = config or MonteCarloConfig()
     results: dict[str, MonteCarloResult] = {}
     for i, preset in enumerate(presets):
-        cfg = MonteCarloConfig(
-            n_trials=base.n_trials,
-            seed=base.seed + i * 1000,
-            preset=preset,
-            epoch_utc=base.epoch_utc,
-            duration_s=base.duration_s,
-            step_s=base.step_s,
-            position_offset_m=base.position_offset_m,
-            randomize_offset=base.randomize_offset,
-            offset_min_m=base.offset_min_m,
-            offset_max_m=base.offset_max_m,
-            toa_sigma_s=base.toa_sigma_s,
-            gnss_sigma_m=base.gnss_sigma_m,
-            lonet_sigma_m=base.lonet_sigma_m,
-            n_pulsars=base.n_pulsars,
-            process_noise_accel=base.process_noise_accel,
-            use_truth_velocity_predict=base.use_truth_velocity_predict,
-            include_disturbances=base.include_disturbances,
-            policies=base.policies,
-        )
+        cfg = replace(base, preset=preset, seed=base.seed + i * 1000)
         results[preset] = run_monte_carlo(cfg)
     return results
 
@@ -277,6 +287,8 @@ def aggregate_policy_stats(trials: list[TrialMetrics], policy: NavPolicy) -> Pol
     t_final = np.array([t.timing_final_m for t in subset])
     t_p95 = np.array([t.timing_p95_m for t in subset])
     nis_dof = np.array([t.nis_median_dof for t in subset])
+    ss_mean = np.array([t.steady_state_mean_m for t in subset])
+    ss_rms = np.array([t.steady_state_rms_m for t in subset])
     p95 = _percentile(final, 95.0)
     return PolicyStats(
         policy=policy,
@@ -293,6 +305,8 @@ def aggregate_policy_stats(trials: list[TrialMetrics], policy: NavPolicy) -> Pol
         timing_final_m=_nanmean_finite(t_final),
         timing_p95_m=_nanmean_finite(t_p95),
         nis_median_dof=_nanmean_finite(nis_dof),
+        steady_state_mean_m=float(np.nanmean(ss_mean)),
+        steady_state_rms_m=float(np.nanmean(ss_rms)),
     )
 
 
@@ -316,7 +330,6 @@ def run_single_trial(
     )
     init_vel = traj.velocity_icrs_m_s[0].copy()
     meas_rng = np.random.default_rng(rng.integers(0, 2**63 - 1))
-
     result: HybridRunResult = run_hybrid_ekf(
         traj,
         timeline,
@@ -344,6 +357,7 @@ def run_single_trial(
     )
     seg = result.segment_errors(timeline)
     errs = result.position_error_m
+    ss_mean, ss_rms = steady_state_arc_metrics(errs)
     timing = timing_metrics_from_run(result, policy)
     return TrialMetrics(
         trial_id=trial_id,
@@ -363,6 +377,8 @@ def run_single_trial(
         timing_final_m=timing["timing_final_m"],
         timing_p95_m=timing["timing_p95_m"],
         nis_median_dof=median_nis_per_dof(result),
+        steady_state_mean_m=ss_mean,
+        steady_state_rms_m=ss_rms,
     )
 
 
@@ -429,18 +445,7 @@ def run_pulsar_count_sweep(
     )
     results: dict[int, MonteCarloResult] = {}
     for n in counts:
-        cfg = MonteCarloConfig(
-            n_trials=base.n_trials,
-            seed=base.seed,
-            preset=base.preset,
-            duration_s=base.duration_s,
-            step_s=base.step_s,
-            toa_sigma_s=base.toa_sigma_s,
-            n_pulsars=n,
-            policies=base.policies,
-            randomize_offset=base.randomize_offset,
-            include_disturbances=base.include_disturbances,
-        )
+        cfg = replace(base, n_pulsars=n)
         results[n] = run_monte_carlo(cfg)
     return results
 
@@ -453,19 +458,8 @@ def run_toa_noise_sweep(
     """Monte Carlo vs TOA noise (microseconds)."""
     base = base_config or MonteCarloConfig()
     results: dict[float, MonteCarloResult] = {}
-    for i, sigma_us in enumerate(toa_sigmas_us):
-        cfg = MonteCarloConfig(
-            n_trials=base.n_trials,
-            seed=base.seed,
-            preset=base.preset,
-            duration_s=base.duration_s,
-            step_s=base.step_s,
-            toa_sigma_s=sigma_us * 1e-6,
-            n_pulsars=base.n_pulsars,
-            policies=base.policies,
-            randomize_offset=base.randomize_offset,
-            include_disturbances=base.include_disturbances,
-        )
+    for sigma_us in toa_sigmas_us:
+        cfg = replace(base, toa_sigma_s=sigma_us * 1e-6)
         results[sigma_us] = run_monte_carlo(cfg)
     return results
 
@@ -479,26 +473,10 @@ def run_process_noise_sweep(
     base = base_config or MonteCarloConfig()
     results: dict[float, MonteCarloResult] = {}
     for pacc in pacc_values:
-        cfg = MonteCarloConfig(
-            n_trials=base.n_trials,
-            seed=base.seed,
-            preset=base.preset,
-            epoch_utc=base.epoch_utc,
-            duration_s=base.duration_s,
-            step_s=base.step_s,
-            toa_sigma_s=base.toa_sigma_s,
-            gnss_sigma_m=base.gnss_sigma_m,
-            lonet_sigma_m=base.lonet_sigma_m,
-            n_pulsars=base.n_pulsars,
-            policies=base.policies,
-            randomize_offset=base.randomize_offset,
-            offset_min_m=base.offset_min_m,
-            offset_max_m=base.offset_max_m,
-            position_offset_m=base.position_offset_m,
+        cfg = replace(
+            base,
             process_noise_accel=pacc,
             gravity_scaled_q=False,
-            use_truth_velocity_predict=base.use_truth_velocity_predict,
-            include_disturbances=base.include_disturbances,
         )
         results[pacc] = run_monte_carlo(cfg)
     return results
@@ -513,27 +491,6 @@ def run_gravity_q_scale_sweep(
     base = base_config or MonteCarloConfig()
     results: dict[float, MonteCarloResult] = {}
     for scale in scales:
-        cfg = MonteCarloConfig(
-            n_trials=base.n_trials,
-            seed=base.seed,
-            preset=base.preset,
-            epoch_utc=base.epoch_utc,
-            duration_s=base.duration_s,
-            step_s=base.step_s,
-            toa_sigma_s=base.toa_sigma_s,
-            gnss_sigma_m=base.gnss_sigma_m,
-            lonet_sigma_m=base.lonet_sigma_m,
-            n_pulsars=base.n_pulsars,
-            policies=base.policies,
-            randomize_offset=base.randomize_offset,
-            offset_min_m=base.offset_min_m,
-            offset_max_m=base.offset_max_m,
-            position_offset_m=base.position_offset_m,
-            process_noise_accel=base.process_noise_accel,
-            gravity_scaled_q=True,
-            q_accel_scale=scale,
-            use_truth_velocity_predict=base.use_truth_velocity_predict,
-            include_disturbances=base.include_disturbances,
-        )
+        cfg = replace(base, gravity_scaled_q=True, q_accel_scale=scale)
         results[scale] = run_monte_carlo(cfg)
     return results

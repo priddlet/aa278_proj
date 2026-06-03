@@ -74,7 +74,6 @@ def visible_gps_prns(
     appear visible (~31 sats), which is far above the 0–4 trackable regime
     seen in LuGRE and Capuano-style studies.
 
-    For course replay data with visibility baked in, use HW2 ``gnss_measurements.pkl``.
     """
     ephem = ephem or default_gps_ephemeris()
     sc = np.asarray(spacecraft_mci_km, float)

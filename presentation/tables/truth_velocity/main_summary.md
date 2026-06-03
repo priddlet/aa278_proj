@@ -8,8 +8,10 @@ Blackout fraction: **64.1%**
 
 _Timing: |b_rx−b_truth| (m) averaged over GNSS/LunaNet pseudorange epochs only. XNAV-only and MSP-only blackout do not constrain b in H._
 
-| Policy | Final mean (km) | Final p95 (km) | RMS (km) | Blackout μ (km) | Non-blackout μ (km) | |b| mean (m) | |b| p95 (m) |
-|--------|-----------------|----------------|----------|-----------------|---------------------|------------|-----------|
-| **xnav_only** | 3.74 | 3.86 | 2.46 | 0.46 | 0.99 | — | — |
-| **gnss_only** | 4.89 | 5.02 | 16.09 | 0.45 | 21.10 | 13774.09 | 49407.06 |
-| **hybrid** | 1.13 | 1.23 | 2.39 | 0.45 | 0.56 | 227.54 | 812.77 |
+_Steady μ / Steady RMS: mean and RMS over the last 10% of arc epochs (post-convergence; excludes epoch-0 init spike)._
+
+| Policy | Final mean (km) | Final p95 (km) | RMS (km) | Steady μ (km) | Steady RMS (km) | Blackout μ (km) | Non-blackout μ (km) | |b| mean (m) | |b| p95 (m) |
+|--------|-----------------|----------------|----------|---------------|-----------------|-----------------|---------------------|------------|-----------|
+| **xnav_only** | 3.74 | 3.86 | 2.46 | 0.77 | 0.97 | 0.46 | 0.99 | — | — |
+| **gnss_only** | 4.89 | 5.02 | 16.09 | 0.78 | 1.03 | 0.45 | 21.10 | 13774.06 | 49407.02 |
+| **hybrid** | 1.13 | 1.23 | 2.39 | 0.73 | 0.88 | 0.45 | 0.56 | 227.54 | 812.77 |

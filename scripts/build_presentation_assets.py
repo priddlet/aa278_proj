@@ -21,7 +21,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from pulsar_nav.constants import DEFAULT_MC_DURATION_S
+from pulsar_nav.constants import (
+    DEFAULT_MC_DURATION_S,
+    elfo_orbit_summary,
+    elfo_orbital_period_s,
+)
 from pulsar_nav.simulation.monte_carlo import (
     MonteCarloConfig,
     MonteCarloResult,
@@ -160,10 +164,17 @@ def _summary_markdown(
             "_Timing: |b_rx−b_truth| (m) on GNSS/LunaNet pseudorange epochs; "
             "XNAV-only / MSP-only blackout: clock not in H._",
             "",
-            "| Policy | Final mean (km) | Final p95 (km) | RMS (km) | Blackout μ (km) | Non-blackout μ (km) | |b| mean (m) | |b| p95 (m) |",
-            "|--------|-----------------|----------------|----------|-----------------|---------------------|------------|-----------|",
+            "| Policy | Final mean (km) | Final p95 (km) | RMS (km) | Steady μ (km) | Steady RMS (km) | Blackout μ (km) | Non-blackout μ (km) | |b| mean (m) | |b| p95 (m) |",
+            "|--------|-----------------|----------------|----------|---------------|-----------------|-----------------|---------------------|------------|-----------|",
         ]
     )
+    from pulsar_nav.simulation.monte_carlo import STEADY_STATE_ARC_FRACTION
+
+    pct = int(STEADY_STATE_ARC_FRACTION * 100)
+    lines.append(
+        f"_Steady μ / Steady RMS: last {pct}% of arc epochs (excludes epoch-0 init spike)._"
+    )
+    lines.append("")
     for pol in result.config.policies:
         s = result.by_policy[pol]
         if pol.value == "xnav_only":
@@ -173,7 +184,8 @@ def _summary_markdown(
             t_p95 = f"{s.timing_p95_m:.2f}" if math.isfinite(s.timing_p95_m) else "—"
         lines.append(
             f"| {pol.value} | {s.final_mean_m / 1e3:.2f} | {s.final_p95_m / 1e3:.2f} | "
-            f"{s.rms_error_m / 1e3:.2f} | {s.blackout_mean_m / 1e3:.2f} | "
+            f"{s.rms_error_m / 1e3:.2f} | {s.steady_state_mean_m / 1e3:.2f} | "
+            f"{s.steady_state_rms_m / 1e3:.2f} | {s.blackout_mean_m / 1e3:.2f} | "
             f"{s.non_blackout_mean_m / 1e3:.2f} | {t_mean} | {t_p95} |"
         )
     lines.append("")
@@ -232,7 +244,12 @@ def build_common_figures(
         include_disturbances=args.disturbed_dynamics,
     )
     bf = 100.0 * vis_tl.blackout_fraction
-    print(f"  {args.preset.upper()} {args.visibility_hr:.0f} hr — blackout {bf:.1f}%")
+    orbit_line = ""
+    if args.preset == "elfo":
+        t_hr = elfo_orbital_period_s() / 3600.0
+        n_rev = args.visibility_hr / t_hr
+        orbit_line = f" · {elfo_orbit_summary()} · {n_rev:.2f} rev"
+    print(f"  {args.preset.upper()} {args.visibility_hr:.0f} hr sim{orbit_line} — blackout {bf:.1f}%")
     from pulsar_nav.visibility.gnss_coverage import gnss_sidelobe_coverage_stats
 
     gnss_cov = gnss_sidelobe_coverage_stats(vis_traj, vis_tl)
@@ -243,12 +260,11 @@ def build_common_figures(
         saved.append(name)
         print(f"  saved {name}")
 
+    vis_title = f"ELFO visibility — {args.visibility_hr:.0f}-hr simulation"
+    if args.preset == "elfo":
+        vis_title += f" ({elfo_orbit_summary()})"
     _save(
-        plot_visibility_timeline(
-            vis_traj,
-            vis_tl,
-            title=f"{args.preset.upper()} visibility ({args.visibility_hr:.0f} hr)",
-        ),
+        plot_visibility_timeline(vis_traj, vis_tl, title=vis_title),
         f"{args.preset}_visibility_timeline.png",
     )
 
@@ -281,10 +297,18 @@ def build_common_figures(
     saved.append(f"{args.preset}_truth_propagation.png")
     print(f"  saved {args.preset}_truth_propagation.png")
 
+    orbit_md = ""
+    if args.preset == "elfo":
+        t_hr = elfo_orbital_period_s() / 3600.0
+        orbit_md = (
+            f"{elfo_orbit_summary()} · **{args.visibility_hr / t_hr:.2f}** revolutions in arc · "
+        )
     md = (
         f"## Common geometry — {args.preset.upper()}\n\n"
-        f"Arc: **{args.visibility_hr:.0f} hr** · Blackout: **{bf:.1f}%** · "
-        f"Windows: **{len(vis_tl.windows)}**\n\n"
+        f"Simulation arc: **{args.visibility_hr:.0f} hr** · {orbit_md}"
+        f"Blackout: **{bf:.1f}%** · Windows: **{len(vis_tl.windows)}**\n\n"
+        "_Not the LCRNS 30-h reference orbit (a≈11 300 km, T≈30 h). "
+        f"Monte Carlo blackout **~64%** uses **{DEFAULT_MC_DURATION_S / 3600:.1f} hr** (2× period).\n\n"
         f"**{gnss_cov.summary_line()}** (geometric non-blackout vs sidelobe PRNs)\n\n"
         "Orbit segment plots show **planned** policy phases; MC propagation plots use "
         "**measured** segments from the filter run.\n"
@@ -418,22 +442,11 @@ def build_nav_pipeline(
         saved.append(fname)
 
     if not args.quick:
-        sweep_base = MonteCarloConfig(
-            n_trials=n_mc,
-            seed=0,
-            preset=cfg.preset,
-            duration_s=cfg.duration_s,
-            step_s=cfg.step_s,
-            toa_sigma_s=cfg.toa_sigma_s,
-            predict_mode=pipeline.predict_mode,
-            use_truth_velocity_predict=pipeline.use_truth_velocity_predict,
-            use_dynamics_predict=pipeline.use_dynamics_predict,
-        )
         print("Pulsar count sweep...")
         pulsar_sweep = run_pulsar_count_sweep(
             (1, 3, 5),
             base_config=replace(
-                sweep_base,
+                cfg,
                 policies=(NavPolicy.HYBRID, NavPolicy.XNAV_ONLY),
             ),
         )
@@ -447,7 +460,7 @@ def build_nav_pipeline(
         print("TOA noise sweep...")
         toa_sweep = run_toa_noise_sweep(
             (0.1, 1.0, 10.0),
-            base_config=sweep_base,
+            base_config=cfg,
         )
         export_bundle.toa_sweep = toa_sweep
         save_figure(
