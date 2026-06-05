@@ -1,7 +1,7 @@
-predict_mode,n_msps,policy,final_mean_km,final_p95_km,blackout_mean_km
-filter_dynamics,1,hybrid,0.012,0.024,0.27
-filter_dynamics,1,xnav_only,0.015,0.025,52.406
-filter_dynamics,3,hybrid,0.014,0.024,0.131
-filter_dynamics,3,xnav_only,0.014,0.028,0.143
-filter_dynamics,5,hybrid,0.012,0.019,0.09
-filter_dynamics,5,xnav_only,0.014,0.023,0.094
+predict_mode,n_msps,policy,final_mean_km,final_p95_km,blackout_mean_km,timing_mean_m,timing_final_m,timing_p95_m
+filter_dynamics,1,hybrid,0.012,0.025,0.271,20.98504999727222,2.827786286985787,103.165501707154
+filter_dynamics,1,xnav_only,0.015,0.025,52.406,nan,nan,nan
+filter_dynamics,3,hybrid,0.014,0.024,0.131,16.367596460890965,3.4407571241902524,62.22135209948766
+filter_dynamics,3,xnav_only,0.014,0.028,0.143,nan,nan,nan
+filter_dynamics,5,hybrid,0.012,0.02,0.09,13.86592885302069,2.8848547430885696,47.898133532001815
+filter_dynamics,5,xnav_only,0.014,0.023,0.094,nan,nan,nan

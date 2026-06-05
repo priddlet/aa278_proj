@@ -7,6 +7,7 @@ Gravity-scaled: q_a(r) ≈ (scale · GM/r²)² updated each predict from estimat
 
 Usage:
     python scripts/sweep_process_noise.py --filter-predict --trials 10
+    python scripts/sweep_process_noise.py --dynamics-predict --trials 10
     python scripts/sweep_process_noise.py --filter-predict --quick
 """
 
@@ -30,9 +31,11 @@ from pulsar_nav.propagation.propagator import LunarPropagator
 from pulsar_nav.simulation.monte_carlo import (
     MonteCarloConfig,
     MonteCarloResult,
+    run_dynamics_sigma_acc_sweep,
     run_gravity_q_scale_sweep,
     run_process_noise_sweep,
 )
+from pulsar_nav.simulation.predict_mode import PredictMode
 from pulsar_nav.simulation.policy import NavPolicy
 from pulsar_nav.spice.ephemeris import str_to_et
 from pulsar_nav.spice.kernels import load_kernels
@@ -117,6 +120,7 @@ def _markdown_table(
     r_min_km: float,
     r_max_km: float,
     qa_peri: tuple[float, float],
+    q_description: str,
 ) -> str:
     lines = [
         f"# {title}",
@@ -128,13 +132,14 @@ def _markdown_table(
         "|------|-----------|------|--------|--------------|----------|"
         "------------|----------------|------------|-------------|",
         "",
-        "**Constant CWNA:** fixed `process_noise_accel` (m²/s³). "
-        "**Gravity-scaled:** q_a(r) ≈ (scale·GM/r²)² each step (periapsis-aware). "
+        q_description,
         f"Truth-radius range: **{r_min_km:.0f}–{r_max_km:.0f} km**. "
         f"Gravity-scaled q_a at truth radii (scale=1): **{_format_sci(qa_peri[0])}–{_format_sci(qa_peri[1])}** m²/s³. "
         f"Scalar RMS reference q_a ≈ **{_format_sci(gravity_ref)}** m²/s³.",
         "",
-        "Target **med NIS/df ≈ 1** under filter CV. XNAV-only: timing blank (MSP-only H).",
+        "Target **med NIS/df ≈ 1** under filter CV / dynamics predict. "
+        "XNAV-only: timing blank (MSP-only H). "
+        "**|b| mean** = mean |b_rx−b_truth| (m) on GNSS/LunaNet pseudorange epochs.",
         "",
     ]
     for r in rows:
@@ -154,7 +159,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--preset", default="elfo")
     p.add_argument("--trials", type=int, default=10)
     p.add_argument("--duration", type=float, default=None, help="hours")
-    p.add_argument("--filter-predict", action="store_true")
+    pred = p.add_mutually_exclusive_group()
+    pred.add_argument("--filter-predict", action="store_true")
+    pred.add_argument(
+        "--dynamics-predict",
+        action="store_true",
+        help="Filter dynamics (RK45+STM) with HW2 sigma_acc_km sweep",
+    )
     p.add_argument("--quick", action="store_true", help="3 trials; smaller sweep grids")
     p.add_argument(
         "--out-dir",
@@ -171,7 +182,15 @@ def main() -> None:
     duration_s = (
         args.duration * 3600.0 if args.duration is not None else DEFAULT_MC_DURATION_S
     )
-    predict_label = "filter_predict" if args.filter_predict else "truth_velocity"
+    if args.dynamics_predict:
+        predict_label = "filter_dynamics"
+        predict_title = "Filter dynamics predict (RK45+STM)"
+    elif args.filter_predict:
+        predict_label = "filter_predict"
+        predict_title = "Filter CV predict"
+    else:
+        predict_label = "truth_velocity"
+        predict_title = "Truth-velocity predict"
     policies = (
         (NavPolicy.HYBRID, NavPolicy.GNSS_ONLY)
         if args.quick
@@ -187,12 +206,21 @@ def main() -> None:
     r_min, r_max = float(np.min(r_km)), float(np.max(r_km))
     qa_peri = periapsis_q_range_km(traj, scale=1.0)
 
-    if args.quick:
+    if args.dynamics_predict:
+        if args.quick:
+            sigma_values = (1e-7, 1e-6, 1e-5)
+        else:
+            sigma_values = (1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3)
+        pacc_values: tuple[float, ...] = ()
+        grav_scales: tuple[float, ...] = ()
+    elif args.quick:
         pacc_values = (1e-5, 1e-4, 1e-3)
         grav_scales = (0.5, 1.0, 2.0)
+        sigma_values = ()
     else:
         pacc_values = (1e-6, 1e-5, 1e-4, 1e-3, g_ref / 10.0, g_ref, g_ref * 10.0)
         grav_scales = (0.25, 0.5, 0.65, 1.0, 1.5, 2.0)
+        sigma_values = ()
 
     base = MonteCarloConfig(
         n_trials=n_trials,
@@ -200,7 +228,9 @@ def main() -> None:
         preset=args.preset,
         duration_s=duration_s,
         step_s=120.0,
-        use_truth_velocity_predict=not args.filter_predict,
+        predict_mode=PredictMode.DYNAMICS if args.dynamics_predict else None,
+        use_truth_velocity_predict=not args.filter_predict and not args.dynamics_predict,
+        use_dynamics_predict=args.dynamics_predict,
         policies=policies,
     )
 
@@ -208,41 +238,64 @@ def main() -> None:
         f"\nQ sweep — {args.preset}, {duration_s/3600:.1f} hr, {predict_label}, n={n_trials}"
     )
     print(f"Radius: {r_min:.0f}–{r_max:.0f} km  |  q_a(scale=1): {_format_sci(qa_peri[0])}–{_format_sci(qa_peri[1])} m²/s³")
-    print(f"Constant pacc: {', '.join(_format_sci(p) for p in pacc_values)}")
-    print(f"Gravity scales: {', '.join(str(s) for s in grav_scales)}\n")
+    if args.dynamics_predict:
+        print(
+            "HW2 sigma_acc_km (km/s²/√s): "
+            + ", ".join(_format_sci(s) for s in sigma_values)
+        )
+    else:
+        print(f"Constant pacc: {', '.join(_format_sci(p) for p in pacc_values)}")
+        print(f"Gravity scales: {', '.join(str(s) for s in grav_scales)}")
+    print()
 
     rows: list[dict] = []
 
-    const_sweep = run_process_noise_sweep(pacc_values, base_config=base)
-    for pacc, result in sorted(const_sweep.items(), key=lambda kv: kv[0]):
-        note = "gravity-RMS ref" if abs(pacc - g_ref) / max(g_ref, 1e-30) < 0.02 else ""
-        rows.extend(
-            _rows_from_result(
-                result,
-                predict_label=predict_label,
-                q_mode="constant",
-                q_param=pacc,
-                q_label=_format_sci(pacc),
-                note=note,
-                policies=policies,
+    if args.dynamics_predict:
+        dyn_sweep = run_dynamics_sigma_acc_sweep(sigma_values, base_config=base)
+        for sigma_km, result in sorted(dyn_sweep.items(), key=lambda kv: kv[0]):
+            note = "MC default" if abs(sigma_km - 1e-6) / 1e-6 < 0.02 else ""
+            rows.extend(
+                _rows_from_result(
+                    result,
+                    predict_label=predict_label,
+                    q_mode="hw2_sigma_acc",
+                    q_param=sigma_km,
+                    q_label=_format_sci(sigma_km),
+                    note=note,
+                    policies=policies,
+                )
             )
-        )
+    else:
+        const_sweep = run_process_noise_sweep(pacc_values, base_config=base)
+        for pacc, result in sorted(const_sweep.items(), key=lambda kv: kv[0]):
+            note = "gravity-RMS ref" if abs(pacc - g_ref) / max(g_ref, 1e-30) < 0.02 else ""
+            rows.extend(
+                _rows_from_result(
+                    result,
+                    predict_label=predict_label,
+                    q_mode="constant",
+                    q_param=pacc,
+                    q_label=_format_sci(pacc),
+                    note=note,
+                    policies=policies,
+                )
+            )
 
-    grav_sweep = run_gravity_q_scale_sweep(grav_scales, base_config=base)
-    for scale, result in sorted(grav_sweep.items(), key=lambda kv: kv[0]):
-        q_lo, q_hi = periapsis_q_range_km(traj, scale=scale)
-        note = f"q_a∈[{_format_sci(q_lo)},{_format_sci(q_hi)}]"
-        rows.extend(
-            _rows_from_result(
-                result,
-                predict_label=predict_label,
-                q_mode="gravity_scaled",
-                q_param=scale,
-                q_label=f"scale={scale:g}",
-                note=note,
-                policies=policies,
+        grav_sweep = run_gravity_q_scale_sweep(grav_scales, base_config=base)
+        for scale, result in sorted(grav_sweep.items(), key=lambda kv: kv[0]):
+            q_lo, q_hi = periapsis_q_range_km(traj, scale=scale)
+            note = f"q_a∈[{_format_sci(q_lo)},{_format_sci(q_hi)}]"
+            rows.extend(
+                _rows_from_result(
+                    result,
+                    predict_label=predict_label,
+                    q_mode="gravity_scaled",
+                    q_param=scale,
+                    q_label=f"scale={scale:g}",
+                    note=note,
+                    policies=policies,
+                )
             )
-        )
 
     out_dir = args.out_dir / predict_label
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -254,15 +307,26 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(rows)
 
+    if args.dynamics_predict:
+        q_desc = (
+            "**HW2 CWNA:** `dynamics_sigma_acc_km` (km/s²/√s) on RK45+STM predict; "
+            "clock Q from HW2 RAFS PSDs. "
+        )
+    else:
+        q_desc = (
+            "**Constant CWNA:** fixed `process_noise_accel` (m²/s³). "
+            "**Gravity-scaled:** q_a(r) ≈ (scale·GM/r²)² each step (periapsis-aware). "
+        )
     md = _markdown_table(
         rows,
         title=f"Process-noise sweep — {args.preset.upper()}",
-        predict_label="Filter CV predict" if args.filter_predict else "Truth-velocity predict",
+        predict_label=predict_title,
         n_trials=n_trials,
         gravity_ref=g_ref,
         r_min_km=r_min,
         r_max_km=r_max,
         qa_peri=qa_peri,
+        q_description=q_desc,
     )
     md_path.write_text(md, encoding="utf-8")
 

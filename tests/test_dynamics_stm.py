@@ -14,6 +14,23 @@ from pulsar_nav.filter.hw2_process_noise import process_noise_hw2
 from pulsar_nav.propagation.dynamics import DynamicsConfig
 
 
+def _kernels_available() -> bool:
+    try:
+        from pulsar_nav.spice.kernels import resolve_kernel_dir
+
+        resolve_kernel_dir()
+        return True
+    except FileNotFoundError:
+        return False
+
+
+@pytest.fixture(scope="module")
+def spice_loaded():
+    from pulsar_nav.spice.kernels import load_kernels
+
+    load_kernels()
+
+
 def test_process_noise_hw2_positive_definite():
     q = process_noise_hw2(120.0, sigma_acc_km=1e-6)
     assert q.shape == (10, 10)
@@ -21,7 +38,8 @@ def test_process_noise_hw2_positive_definite():
     assert np.all(evals >= -1e-20)
 
 
-def test_stm_matches_numeric_phi_loosely():
+@pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")
+def test_stm_matches_numeric_phi_loosely(spice_loaded):
     cfg = DynamicsConfig(include_earth=False, include_sun=False)
     r = np.array([7000.0, 0.0, 0.0])
     v = np.array([0.0, 1.5, 0.0])
@@ -42,18 +60,8 @@ def test_stm_not_identity_over_120s():
     assert not np.allclose(phi, np.eye(6), atol=0.01)
 
 
-def _kernels_available() -> bool:
-    try:
-        from pulsar_nav.spice.kernels import resolve_kernel_dir
-
-        resolve_kernel_dir()
-        return True
-    except FileNotFoundError:
-        return False
-
-
 @pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")
-def test_full_state_transition_finite():
+def test_full_state_transition_finite(spice_loaded):
     from pulsar_nav.filter.state import NAV_STATE_DIM
     from pulsar_nav.propagation.dynamics import dynamics_config_for_sim
 

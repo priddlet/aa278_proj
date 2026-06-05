@@ -41,6 +41,23 @@ def _gps_light_time_callback(sat_id: int | str):
     return get_tx
 
 
+def joseph_covariance_update(
+    covariance: np.ndarray,
+    kalman_gain: np.ndarray,
+    measurement_jacobian: np.ndarray,
+    measurement_covariance: np.ndarray,
+) -> np.ndarray:
+    """
+    Joseph-form covariance after a stacked measurement update.
+
+    P+ = (I - K H) P (I - K H)^T + K R K^T — symmetric and PSD-preserving
+    under ideal arithmetic (preferred over (I - K H) P).
+    """
+    n = covariance.shape[0]
+    i_kh = np.eye(n) - kalman_gain @ measurement_jacobian
+    return i_kh @ covariance @ i_kh.T + kalman_gain @ measurement_covariance @ kalman_gain.T
+
+
 @dataclass
 class PulsarNavEKF:
     """
@@ -211,13 +228,7 @@ class PulsarNavEKF:
             ]
         )
         R = np.diag([m.sigma_m**2 for m in measurements])
-        S = H @ self.covariance @ H.T + R
-        self._record_nis(y, S)
-        K = self.covariance @ H.T @ np.linalg.inv(S)
-        self.state = NavState(self.state.vector + (K @ y).ravel())
-        I = np.eye(NAV_STATE_DIM)
-        self.covariance = (I - K @ H) @ self.covariance
-        return [float(v) for v in y]
+        return self._stacked_measurement_update(H, y, R)
 
     def _stacked_measurement_update(
         self,
@@ -230,8 +241,7 @@ class PulsarNavEKF:
         self._record_nis(y_vec, S)
         K = self.covariance @ H.T @ np.linalg.inv(S)
         self.state = NavState(self.state.vector + (K @ y_vec).ravel())
-        I = np.eye(NAV_STATE_DIM)
-        self.covariance = (I - K @ H) @ self.covariance
+        self.covariance = joseph_covariance_update(self.covariance, K, H, R)
         return [float(v) for v in y_vec]
 
     def update_navigation_epoch(
@@ -291,13 +301,7 @@ class PulsarNavEKF:
         H = np.vstack([measurement_jacobian(m.pulsar) for m in measurements])
         y = np.array([range_residual(m, self.state) for m in measurements])
         R = np.diag([m.sigma_m**2 for m in measurements])
-        S = H @ self.covariance @ H.T + R
-        self._record_nis(y, S)
-        K = self.covariance @ H.T @ np.linalg.inv(S)
-        self.state = NavState(self.state.vector + (K @ y).ravel())
-        I = np.eye(NAV_STATE_DIM)
-        self.covariance = (I - K @ H) @ self.covariance
-        return [float(v) for v in y]
+        return self._stacked_measurement_update(H, y, R)
 
     def step(
         self,

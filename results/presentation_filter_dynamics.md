@@ -19,8 +19,8 @@ _Timing: |b_rx−b_truth| (m) on GNSS/LunaNet pseudorange epochs; XNAV-only / MS
 _Steady μ / Steady RMS: last 10% of arc epochs (excludes epoch-0 init spike)._
 
 | xnav_only | 0.02 | 0.02 | 2.33 | 0.06 | 0.07 | 0.09 | 0.35 | — | — |
-| gnss_only | 0.01 | 0.03 | 2.36 | 0.05 | 0.07 | 0.09 | 0.48 | 119.90 | 453.61 |
-| hybrid | 0.01 | 0.02 | 2.33 | 0.05 | 0.06 | 0.09 | 0.29 | 13.25 | 45.54 |
+| gnss_only | 0.01 | 0.03 | 2.36 | 0.05 | 0.07 | 0.09 | 0.48 | 119.91 | 452.73 |
+| hybrid | 0.01 | 0.02 | 2.33 | 0.05 | 0.06 | 0.09 | 0.29 | 13.06 | 45.16 |
 
 
 Spreadsheet: `results/monte_carlo_filter_dynamics.xlsx`

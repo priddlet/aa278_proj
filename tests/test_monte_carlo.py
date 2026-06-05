@@ -347,3 +347,49 @@ def test_hybrid_beats_gnss_coast_in_blackout_heavy_arc(spice_loaded):
     h = result.by_policy[NavPolicy.HYBRID]
     g = result.by_policy[NavPolicy.GNSS_COAST]
     assert h.blackout_mean_m < g.blackout_mean_m
+
+
+def test_sweep_tables_include_timing_columns():
+    from pulsar_nav.simulation.monte_carlo import MonteCarloConfig, MonteCarloResult, PolicyStats
+    from pulsar_nav.simulation.presentation_tables import (
+        _pulsar_sweep_csv,
+        _timing_display,
+        _toa_sweep_csv,
+    )
+
+    def _stats(policy: NavPolicy, *, timing: float) -> PolicyStats:
+        return PolicyStats(
+            policy=policy,
+            n_trials=1,
+            final_mean_m=1e3,
+            final_std_m=0.0,
+            final_p95_m=1e3,
+            mean_error_m=1e3,
+            rms_error_m=1e3,
+            blackout_mean_m=100.0,
+            non_blackout_mean_m=100.0,
+            meets_lunanet_p95=False,
+            timing_mean_m=timing,
+            timing_final_m=timing,
+            timing_p95_m=timing * 2,
+        )
+
+    cfg = MonteCarloConfig(n_trials=1, policies=(NavPolicy.HYBRID, NavPolicy.XNAV_ONLY))
+    sweep = {
+        3: MonteCarloResult(
+            config=cfg,
+            trials=[],
+            by_policy={
+                NavPolicy.HYBRID: _stats(NavPolicy.HYBRID, timing=13.0),
+                NavPolicy.XNAV_ONLY: _stats(NavPolicy.XNAV_ONLY, timing=float("nan")),
+            },
+        )
+    }
+    row = _pulsar_sweep_csv(sweep, predict_mode="filter_dynamics")[0]
+    assert set(row) >= {"timing_mean_m", "timing_final_m", "timing_p95_m"}
+    assert row["timing_mean_m"] == 13.0
+    t_mean, t_p95 = _timing_display(NavPolicy.XNAV_ONLY, sweep[3].by_policy[NavPolicy.XNAV_ONLY])
+    assert t_mean == "—"
+    assert t_p95 == "—"
+    toa_row = _toa_sweep_csv({1.0: sweep[3]}, predict_mode="filter_dynamics")[0]
+    assert toa_row["timing_p95_m"] == 26.0

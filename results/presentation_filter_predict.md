@@ -19,7 +19,7 @@ _Timing: |b_rx−b_truth| (m) on GNSS/LunaNet pseudorange epochs; XNAV-only / MS
 _Steady μ / Steady RMS: last 10% of arc epochs (excludes epoch-0 init spike)._
 
 | xnav_only | 7.39 | 7.59 | 3.50 | 2.33 | 2.91 | 1.24 | 2.80 | — | — |
-| gnss_only | 10.44 | 10.64 | 680.18 | 2.36 | 3.03 | 1.23 | 808.91 | 532626.48 | 1873227.87 |
+| gnss_only | 10.44 | 10.64 | 680.18 | 2.36 | 3.03 | 1.23 | 808.91 | 532626.51 | 1873228.14 |
 | hybrid | 3.09 | 3.17 | 2.78 | 2.27 | 2.81 | 1.23 | 1.04 | 578.01 | 2201.28 |
 
 

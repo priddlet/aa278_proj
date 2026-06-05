@@ -6,12 +6,33 @@ import csv
 import math
 from pathlib import Path
 
-from pulsar_nav.simulation.monte_carlo import STEADY_STATE_ARC_FRACTION, MonteCarloResult
+from pulsar_nav.simulation.monte_carlo import (
+    STEADY_STATE_ARC_FRACTION,
+    MonteCarloResult,
+    PolicyStats,
+)
 from pulsar_nav.simulation.monte_carlo_export import (
     MonteCarloExportBundle,
     _summary_row,
     _trial_row,
 )
+from pulsar_nav.simulation.policy import NavPolicy
+
+
+def _timing_display(policy: NavPolicy, stats: PolicyStats) -> tuple[str, str]:
+    if policy == NavPolicy.XNAV_ONLY:
+        return "—", "—"
+    t_mean = f"{stats.timing_mean_m:.2f}" if math.isfinite(stats.timing_mean_m) else "—"
+    t_p95 = f"{stats.timing_p95_m:.2f}" if math.isfinite(stats.timing_p95_m) else "—"
+    return t_mean, t_p95
+
+
+def _timing_csv_fields(stats: PolicyStats) -> dict[str, float]:
+    return {
+        "timing_mean_m": stats.timing_mean_m,
+        "timing_final_m": stats.timing_final_m,
+        "timing_p95_m": stats.timing_p95_m,
+    }
 def _write_csv(path: Path, rows: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if not rows:
@@ -57,12 +78,7 @@ def _main_summary_md(
     ]
     for pol in cfg.policies:
         s = result.by_policy[pol]
-        if pol.value == "xnav_only":
-            t_mean = "—"
-            t_p95 = "—"
-        else:
-            t_mean = f"{s.timing_mean_m:.2f}" if math.isfinite(s.timing_mean_m) else "—"
-            t_p95 = f"{s.timing_p95_m:.2f}" if math.isfinite(s.timing_p95_m) else "—"
+        t_mean, t_p95 = _timing_display(pol, s)
         lines.append(
             f"| **{pol.value}** | {s.final_mean_m / 1e3:.2f} | {s.final_p95_m / 1e3:.2f} | "
             f"{s.rms_error_m / 1e3:.2f} | {s.steady_state_mean_m / 1e3:.2f} | "
@@ -77,16 +93,19 @@ def _pulsar_sweep_md(sweep: dict[int, MonteCarloResult]) -> str:
     lines = [
         "## Pulsar count sweep",
         "",
-        "| MSPs | Policy | Final mean (km) | Final p95 (km) | Blackout μ (km) |",
-        "|------|--------|-----------------|----------------|-----------------|",
+        "_|b| timing on GNSS/LunaNet pseudorange epochs; XNAV-only: — (clock not in H)._",
+        "",
+        "| MSPs | Policy | Final mean (km) | Final p95 (km) | Blackout μ (km) | |b| mean (m) | |b| p95 (m) |",
+        "|------|--------|-----------------|----------------|-----------------|------------|-----------|",
     ]
     for n in sorted(sweep.keys()):
         res = sweep[n]
         for pol in res.config.policies:
             s = res.by_policy[pol]
+            t_mean, t_p95 = _timing_display(pol, s)
             lines.append(
                 f"| {n} | {pol.value} | {s.final_mean_m / 1e3:.2f} | "
-                f"{s.final_p95_m / 1e3:.2f} | {s.blackout_mean_m / 1e3:.2f} |"
+                f"{s.final_p95_m / 1e3:.2f} | {s.blackout_mean_m / 1e3:.2f} | {t_mean} | {t_p95} |"
             )
     lines.append("")
     return "\n".join(lines)
@@ -96,16 +115,19 @@ def _toa_sweep_md(sweep: dict[float, MonteCarloResult]) -> str:
     lines = [
         "## TOA noise sweep",
         "",
-        "| TOA µs | Policy | Final mean (km) | Final p95 (km) | Blackout μ (km) |",
-        "|--------|--------|-----------------|----------------|-----------------|",
+        "_|b| timing on GNSS/LunaNet pseudorange epochs; XNAV-only: — (clock not in H)._",
+        "",
+        "| TOA µs | Policy | Final mean (km) | Final p95 (km) | Blackout μ (km) | |b| mean (m) | |b| p95 (m) |",
+        "|--------|--------|-----------------|----------------|-----------------|------------|-----------|",
     ]
     for sig_us in sorted(sweep.keys()):
         res = sweep[sig_us]
         for pol in res.config.policies:
             s = res.by_policy[pol]
+            t_mean, t_p95 = _timing_display(pol, s)
             lines.append(
                 f"| {sig_us:.1f} | {pol.value} | {s.final_mean_m / 1e3:.2f} | "
-                f"{s.final_p95_m / 1e3:.2f} | {s.blackout_mean_m / 1e3:.2f} |"
+                f"{s.final_p95_m / 1e3:.2f} | {s.blackout_mean_m / 1e3:.2f} | {t_mean} | {t_p95} |"
             )
     lines.append("")
     return "\n".join(lines)
@@ -125,6 +147,7 @@ def _pulsar_sweep_csv(sweep: dict[int, MonteCarloResult], *, predict_mode: str) 
                     "final_mean_km": round(s.final_mean_m / 1e3, 3),
                     "final_p95_km": round(s.final_p95_m / 1e3, 3),
                     "blackout_mean_km": round(s.blackout_mean_m / 1e3, 3),
+                    **_timing_csv_fields(s),
                 }
             )
     return rows
@@ -144,6 +167,7 @@ def _toa_sweep_csv(sweep: dict[float, MonteCarloResult], *, predict_mode: str) -
                     "final_mean_km": round(s.final_mean_m / 1e3, 3),
                     "final_p95_km": round(s.final_p95_m / 1e3, 3),
                     "blackout_mean_km": round(s.blackout_mean_m / 1e3, 3),
+                    **_timing_csv_fields(s),
                 }
             )
     return rows
@@ -243,8 +267,8 @@ def write_tables_index(
             "- `main_summary.md` — policy comparison (km)",
             "- `main_policy_summary.csv` — aggregated stats",
             "- `main_trials.csv` — per-trial rows",
-            "- `pulsar_sweep.md` / `.csv` — MSP count sensitivity (full build)",
-            "- `toa_sweep.md` / `.csv` — TOA σ sensitivity (full build)",
+            "- `pulsar_sweep.md` / `.csv` — MSP count sensitivity; includes |b| timing (m) on PR epochs",
+            "- `toa_sweep.md` / `.csv` — TOA σ sensitivity; includes |b| timing (m) on PR epochs",
             "",
             f"## SEXTANT / NICER MSP catalog ({preset})",
             "",

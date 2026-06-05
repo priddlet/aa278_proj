@@ -1,7 +1,7 @@
-predict_mode,n_msps,policy,final_mean_km,final_p95_km,blackout_mean_km
-truth_velocity,1,hybrid,1.424,1.587,20.852
-truth_velocity,1,xnav_only,5.696,5.809,80.969
-truth_velocity,3,hybrid,1.319,1.516,0.672
-truth_velocity,3,xnav_only,5.415,5.564,0.665
-truth_velocity,5,hybrid,1.14,1.225,0.453
-truth_velocity,5,xnav_only,3.737,3.87,0.455
+predict_mode,n_msps,policy,final_mean_km,final_p95_km,blackout_mean_km,timing_mean_m,timing_final_m,timing_p95_m
+truth_velocity,1,hybrid,1.424,1.587,20.852,4244.6781246370065,750.1007536658159,28008.070938794135
+truth_velocity,1,xnav_only,5.696,5.809,80.969,nan,nan,nan
+truth_velocity,3,hybrid,1.319,1.516,0.672,297.82363082066547,695.1111417984337,1008.6444692381868
+truth_velocity,3,xnav_only,5.415,5.564,0.665,nan,nan,nan
+truth_velocity,5,hybrid,1.14,1.225,0.453,227.87378395385812,601.6097665103407,826.8022628034174
+truth_velocity,5,xnav_only,3.737,3.87,0.455,nan,nan,nan

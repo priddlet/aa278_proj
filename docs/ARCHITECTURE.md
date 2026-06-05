@@ -165,7 +165,7 @@ K = PH^T S^{-1},\quad
 P \leftarrow (I-KH)P
 \]
 
-`update_navigation_epoch` stacks XNAV + all pseudoranges in one \(H,R\) (avoids sequential over-weighting). GPS light-time in filter matches truth synthesis (`get_tx_position` callback). Covariance uses the standard \((I-KH)P\) form (not Joseph / square-root). Process noise \(Q\) uses a simplified diagonal clock block (bias \(\propto q_c \Delta t^2\), no bias–drift cross-term). XNAV rows of \(H\) do not observe clock states — in XNAV-only segments the clock covariance grows (physically expected).
+`update_navigation_epoch` stacks XNAV + all pseudoranges in one \(H,R\) (avoids sequential over-weighting). GPS light-time in filter matches truth synthesis (`get_tx_position` callback). Covariance uses the **Joseph form** \(P^+ = (I-KH)P(I-KH)^T + KRK^T\) for stacked updates. Process noise \(Q\) uses a simplified diagonal clock block (bias \(\propto q_c \Delta t^2\), no bias–drift cross-term). XNAV rows of \(H\) do not observe clock states — in XNAV-only segments the clock covariance grows (physically expected).
 
 ### Visibility (`visibility/blackout.py`)
 

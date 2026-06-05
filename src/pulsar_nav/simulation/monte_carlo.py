@@ -494,3 +494,27 @@ def run_gravity_q_scale_sweep(
         cfg = replace(base, gravity_scaled_q=True, q_accel_scale=scale)
         results[scale] = run_monte_carlo(cfg)
     return results
+
+
+def run_dynamics_sigma_acc_sweep(
+    sigma_acc_km_values: tuple[float, ...],
+    *,
+    base_config: MonteCarloConfig | None = None,
+) -> dict[float, MonteCarloResult]:
+    """Monte Carlo vs HW2 CWNA ``dynamics_sigma_acc_km`` (km/s²/√s) for filter dynamics predict."""
+    from pulsar_nav.simulation.predict_mode import PredictMode
+
+    base = base_config or MonteCarloConfig()
+    results: dict[float, MonteCarloResult] = {}
+    for sigma_km in sigma_acc_km_values:
+        cfg = replace(
+            base,
+            predict_mode=PredictMode.DYNAMICS,
+            use_dynamics_predict=True,
+            use_truth_velocity_predict=False,
+            dynamics_use_hw2_process_noise=True,
+            dynamics_sigma_acc_km=sigma_km,
+            gravity_scaled_q=False,
+        )
+        results[sigma_km] = run_monte_carlo(cfg)
+    return results

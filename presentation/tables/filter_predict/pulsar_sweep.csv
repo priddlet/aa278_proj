@@ -1,7 +1,7 @@
-predict_mode,n_msps,policy,final_mean_km,final_p95_km,blackout_mean_km
-filter_predict,1,hybrid,2.963,3.919,5923.803
-filter_predict,1,xnav_only,24501.212,100044.231,1326515.079
-filter_predict,3,hybrid,3.907,4.131,2.63
-filter_predict,3,xnav_only,13.65,13.865,2.633
-filter_predict,5,hybrid,3.111,3.213,1.233
-filter_predict,5,xnav_only,7.38,7.543,1.234
+predict_mode,n_msps,policy,final_mean_km,final_p95_km,blackout_mean_km,timing_mean_m,timing_final_m,timing_p95_m
+filter_predict,1,hybrid,2.963,3.919,5923.803,3282483.4405162046,1568.7314222060288,8789128.8308403
+filter_predict,1,xnav_only,19035.458,90253.531,1326361.588,nan,nan,nan
+filter_predict,3,hybrid,3.907,4.131,2.63,988.0955594843315,2055.5367289748274,3593.070975401484
+filter_predict,3,xnav_only,13.65,13.865,2.633,nan,nan,nan
+filter_predict,5,hybrid,3.111,3.213,1.233,577.9404596210891,1638.3003038393208,2201.483667689608
+filter_predict,5,xnav_only,7.38,7.543,1.234,nan,nan,nan
