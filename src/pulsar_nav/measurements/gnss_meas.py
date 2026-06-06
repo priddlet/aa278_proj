@@ -31,7 +31,7 @@ def gps_sidelobe_limb_deg(
     """
     Limb angle (deg) for a receivable sidelobe GPS candidate, or None if excluded.
 
-    Keeps clear SC→GPS lines on the far side of Earth (farther from SC than Earth)
+    Keeps clear SC->GPS lines on the far side of Earth (farther from SC than Earth)
     within ``max_limb_deg`` of the Earth limb. Rejects occulted paths and near-side
     satellites whose Earth-pointed beams do not illuminate the Moon.
     """
@@ -71,7 +71,7 @@ def visible_gps_prns(
     When ``sidelobe_only`` (default), requires Earth in view and applies
     ``gps_sidelobe_limb_deg`` (clear far-side LOS in the near-Earth annulus).
     Without that filter, every broadcast PRN above a local elevation mask can
-    appear visible (~31 sats), which is far above the 0–4 trackable regime
+    appear visible (~31 sats), which is far above the 0-4 trackable regime
     seen in LuGRE and Capuano-style studies.
 
     """
@@ -133,7 +133,7 @@ def gnss_pseudoranges(
     Synthesize pseudoranges from visible GPS satellites (broadcast ephemeris).
 
     Uses HW2-style ECEF broadcast + ITRF93->J2000 + Earth-Moon chain to MCI.
-    Default sidelobe geometry yields 0–4 PRNs per epoch when Earth is in view.
+    Default sidelobe geometry yields 0-4 PRNs per epoch when Earth is in view.
     """
     del earth_mci_km  # Earth position enters via ``get_gps_posclk_mci`` / SPICE
     ephem = ephem or default_gps_ephemeris()
@@ -178,7 +178,7 @@ def gnss_sidelobe_los_unit_rows(
     ephem: GpsBroadcastEphemeris | None = None,
     max_sats: int | None = DEFAULT_MAX_GPS_PRNS,
 ) -> np.ndarray:
-    """Unit LOS rows (N×3) for sidelobe PRNs at ``et`` — for PDOP / geometry checks."""
+    """Unit LOS rows (N x 3) for sidelobe PRNs at ``et`` - for PDOP / geometry checks."""
     ephem = ephem or default_gps_ephemeris()
     r_sc_km = icrs_position_to_mci_km(spacecraft_icrs_m, et)
     prns = visible_gps_prns(

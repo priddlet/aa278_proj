@@ -26,13 +26,13 @@ def spice_loaded():
 def test_earth_elevation_sign():
     from pulsar_nav.visibility.geometry import earth_elevation_mci
 
-    # Spacecraft on +X axis, Earth on -X → Earth below horizon
+    # Spacecraft on +X axis, Earth on -X -> Earth below horizon
     r_sc = np.array([7000.0, 0.0, 0.0])
     r_earth = np.array([-384000.0, 0.0, 0.0])
     el = earth_elevation_mci(r_sc, r_earth)
     assert el < 0.0
 
-    # Earth in same direction as zenith → positive elevation
+    # Earth in same direction as zenith -> positive elevation
     r_sc2 = np.array([7000.0, 0.0, 0.0])
     r_earth2 = np.array([400000.0, 0.0, 0.0])
     el2 = earth_elevation_mci(r_sc2, r_earth2)

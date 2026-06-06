@@ -17,9 +17,9 @@ def gravity_scaled_q_accel(
     floor_mps2: float = 1e-4,
 ) -> float:
     """
-  CWNA acceleration intensity ``q_a`` (m²/s³) from lunar point-mass gravity at radius ``r``.
+  CWNA acceleration intensity ``q_a`` (m^2/s^3) from lunar point-mass gravity at radius ``r``.
 
-  ``q_a ≈ (scale · GM/r²)²`` with ``r`` the spacecraft–Moon center distance (km).
+  ``q_a approx (scale  |  GM/r^2)^2`` with ``r`` the spacecraft-Moon center distance (km).
   Inflates automatically near periapsis (smaller ``r``).
     """
     r = float(max(r_moon_km, 1.0))
@@ -33,5 +33,5 @@ def q_accel_at_radius_km(
     *,
     scale: float = 1.0,
 ) -> float:
-    """Alias: ``sqrt(q_a)`` in m/s² (effective acceleration sigma)."""
+    """Alias: ``sqrt(q_a)`` in m/s^2 (effective acceleration sigma)."""
     return float(np.sqrt(gravity_scaled_q_accel(r_moon_km, scale=scale)))

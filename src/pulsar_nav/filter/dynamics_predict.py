@@ -47,7 +47,7 @@ def _ode_pv_stm(
     et0: float,
     config: DynamicsConfig,
 ) -> np.ndarray:
-    """Augmented ODE: MCI [r, v] and STM Φ (HW2 ``dynamics_ode_with_stm``)."""
+    """Augmented ODE: MCI [r, v] and STM Phi (HW2 ``dynamics_ode_with_stm``)."""
     rv = y[:PV_DIM]
     phi = y[PV_DIM:].reshape(PV_DIM, PV_DIM)
     r, v = rv[:3], rv[3:]
@@ -125,9 +125,9 @@ def pv_transition_stm(
     atol: float = RK45_ATOL,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    6×6 STM for ICRS [r, v] (m, m/s) over one predict step.
+    6 x 6 STM for ICRS [r, v] (m, m/s) over one predict step.
 
-    Moon translation cancels in the linearized increment, so Φ_mci applies to meter states.
+    Moon translation cancels in the linearized increment, so Phi_mci applies to meter states.
     """
     r_mci = icrs_position_to_mci_km(position_icrs_m, et)
     v_mci = mci_velocity_from_icrs_m_s(velocity_icrs_m_s, et)
@@ -147,7 +147,7 @@ def numeric_pv_transition(
     eps_pos_m: float = 1.0,
     eps_vel_m_s: float = 0.05,
 ) -> np.ndarray:
-    """Legacy finite-difference Φ (tests / fallback)."""
+    """Legacy finite-difference Phi (tests / fallback)."""
     x0 = np.concatenate(
         [np.asarray(position_icrs_m, float), np.asarray(velocity_icrs_m_s, float)]
     )

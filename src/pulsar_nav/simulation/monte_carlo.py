@@ -147,7 +147,7 @@ class PolicyStats:
 
 
 def median_nis_per_dof(result: HybridRunResult) -> float:
-    """Median NIS/dof over measurement epochs (consistency target ≈ 1)."""
+    """Median NIS/dof over measurement epochs (consistency target approx 1)."""
     if result.nis is None or result.nis_dof is None:
         return float("nan")
     mask = (result.nis_dof > 0) & np.isfinite(result.nis)
@@ -168,13 +168,13 @@ class MonteCarloResult:
 
     def summary_table(self) -> str:
         lines = [
-            f"Monte Carlo — {self.config.preset.upper()}  "
+            f"Monte Carlo - {self.config.preset.upper()}  "
             f"{self.config.duration_s/3600:.1f} hr  n={self.config.n_trials}",
-            f"TOA σ={self.config.toa_sigma_s*1e6:.1f} µs  "
+            f"TOA sigma={self.config.toa_sigma_s*1e6:.1f} us  "
             f"pulsars={self.config.n_pulsars or 'all'}",
             "",
             f"{'Policy':<12} {'Final mean':>12} {'Final p95':>12} "
-            f"{'RMS':>10} {'Steady RMS':>11} {'Blackout μ':>12} {'|b| μ PR':>10} {'<13.43m p95':>12}",
+            f"{'RMS':>10} {'Steady RMS':>11} {'Blackout mu':>12} {'|b| mu PR':>10} {'<13.43m p95':>12}",
         ]
         for pol in self.config.policies:
             s = self.by_policy[pol]
@@ -193,7 +193,7 @@ class MonteCarloResult:
         lines.append(
             f"\nLunaNet reference: {LUNANET_REQUIREMENT_M:.2f} m (pitch)"
             f"\nSteady RMS: last {pct}% of arc (excludes epoch-0 init spike)."
-            "\n|b| μ PR: mean |b_rx−b_truth| on GNSS/LunaNet pseudorange epochs only "
+            "\n|b| mu PR: mean |b_rx-b_truth| on GNSS/LunaNet pseudorange epochs only "
             "(XNAV-only / MSP-only blackout: clock not in H)."
         )
         return "\n".join(lines)
@@ -211,7 +211,7 @@ def comparison_summary_table(results: dict[str, MonteCarloResult]) -> str:
         "Monte Carlo preset comparison",
         f"Duration: {first.config.duration_s/3600:.1f} hr  "
         f"Trials: {first.config.n_trials}  "
-        f"TOA σ={first.config.toa_sigma_s*1e6:.1f} µs",
+        f"TOA sigma={first.config.toa_sigma_s*1e6:.1f} us",
         "",
     ]
 
@@ -469,7 +469,7 @@ def run_process_noise_sweep(
     *,
     base_config: MonteCarloConfig | None = None,
 ) -> dict[float, MonteCarloResult]:
-    """Monte Carlo vs constant CWNA ``process_noise_accel`` (m²/s³)."""
+    """Monte Carlo vs constant CWNA ``process_noise_accel`` (m^2/s^3)."""
     base = base_config or MonteCarloConfig()
     results: dict[float, MonteCarloResult] = {}
     for pacc in pacc_values:
@@ -501,7 +501,7 @@ def run_dynamics_sigma_acc_sweep(
     *,
     base_config: MonteCarloConfig | None = None,
 ) -> dict[float, MonteCarloResult]:
-    """Monte Carlo vs HW2 CWNA ``dynamics_sigma_acc_km`` (km/s²/√s) for filter dynamics predict."""
+    """Monte Carlo vs HW2 CWNA ``dynamics_sigma_acc_km`` (km/s^2/sqrt(s)) for filter dynamics predict."""
     from pulsar_nav.simulation.predict_mode import PredictMode
 
     base = base_config or MonteCarloConfig()

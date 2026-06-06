@@ -16,7 +16,7 @@ SEGMENT_PLOT_LABEL: dict[str, str] = {
     PolicySegment.XNAV_BLACKOUT.value: "MSP (blackout)",
     PolicySegment.XNAV_LONET_SUPPLEMENT.value: "MSP + LunaNet (blackout)",
     PolicySegment.GNSS_VISIBLE.value: "GNSS",
-    PolicySegment.GNSS_XNAV_FALLBACK.value: "GNSS → MSP fallback",
+    PolicySegment.GNSS_XNAV_FALLBACK.value: "GNSS -> MSP fallback",
     PolicySegment.HYBRID_VISIBLE.value: "GNSS + MSP + LunaNet",
     PolicySegment.HYBRID_GNSS_ONLY.value: "GNSS + MSP",
     PolicySegment.COAST.value: "Coast",

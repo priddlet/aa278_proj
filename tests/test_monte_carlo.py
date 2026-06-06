@@ -389,7 +389,7 @@ def test_sweep_tables_include_timing_columns():
     assert set(row) >= {"timing_mean_m", "timing_final_m", "timing_p95_m"}
     assert row["timing_mean_m"] == 13.0
     t_mean, t_p95 = _timing_display(NavPolicy.XNAV_ONLY, sweep[3].by_policy[NavPolicy.XNAV_ONLY])
-    assert t_mean == "—"
-    assert t_p95 == "—"
+    assert t_mean == "-"
+    assert t_p95 == "-"
     toa_row = _toa_sweep_csv({1.0: sweep[3]}, predict_mode="filter_dynamics")[0]
     assert toa_row["timing_p95_m"] == 26.0

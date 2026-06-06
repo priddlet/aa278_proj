@@ -75,7 +75,7 @@ def plot_xyz_errors(result: XNAVRunResult, *, title: str | None = None):
     ax.axhline(0.0, color="k", lw=0.5)
     ax.set_xlabel("time (hr)")
     ax.set_ylabel("error (km)")
-    ax.set_title(title or f"Position errors — {', '.join(result.pulsar_names)}")
+    ax.set_title(title or f"Position errors - {', '.join(result.pulsar_names)}")
     ax.legend()
     ax.grid(True, ls=":", alpha=0.5)
     fig.tight_layout()

@@ -28,7 +28,7 @@ def normalized_innovation_squared(
 
 
 def chi2_95_threshold(dof: int) -> float:
-    """95th percentile of chi-squared(df) — quick NIS alarm threshold."""
+    """95th percentile of chi-squared(df) - quick NIS alarm threshold."""
     from scipy.stats import chi2
 
     return float(chi2.ppf(0.95, dof))

@@ -7,7 +7,7 @@ import numpy as np
 
 def position_dop_from_los(los_unit_rows: np.ndarray) -> float:
     """
-    Position PDOP (3D, no clock) from unit line-of-sight rows (N×3).
+    Position PDOP (3D, no clock) from unit line-of-sight rows (N x 3).
 
     Uses ``PDOP = sqrt(tr((G^T G)^{-1}))`` via singular values of ``G``.
     Returns ``inf`` when fewer than four LOS or rank < 3.

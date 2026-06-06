@@ -50,7 +50,7 @@ def joseph_covariance_update(
     """
     Joseph-form covariance after a stacked measurement update.
 
-    P+ = (I - K H) P (I - K H)^T + K R K^T — symmetric and PSD-preserving
+    P+ = (I - K H) P (I - K H)^T + K R K^T - symmetric and PSD-preserving
     under ideal arithmetic (preferred over (I - K H) P).
     """
     n = covariance.shape[0]
@@ -64,7 +64,7 @@ class PulsarNavEKF:
     EKF with constant-velocity dynamics and XNAV LOS range measurements.
 
     Measurement model (pitch / Sheikh linearized):
-        z = n_hat · r + noise
+        z = n_hat  |  r + noise
     """
 
     state: NavState
@@ -175,8 +175,8 @@ class PulsarNavEKF:
         """
         Time update with MCI point-mass + third-body acceleration on the estimate.
 
-        Tier A: ``solve_ivp`` RK45 mean propagation + analytic STM (Φ̇ = JΦ) in MCI;
-        optional HW2-style CWNA process noise (σ_acc in km/s²/√s).
+        Tier A: ``solve_ivp`` RK45 mean propagation + analytic STM (dPhi/dt = JPhi) in MCI;
+        optional HW2-style CWNA process noise (sigma_acc in km/s^2/sqrt(s)).
         """
         cfg = dynamics_config or DynamicsConfig()
         phi, vec = full_state_transition(

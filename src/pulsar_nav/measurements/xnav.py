@@ -25,7 +25,7 @@ class XNAVMeasurement:
 
 
 def predicted_range(state: NavState, pulsar: Pulsar) -> float:
-    """Predicted scalar observable h(x) = n_hat · r (m)."""
+    """Predicted scalar observable h(x) = n_hat  |  r (m)."""
     return pulsar.line_of_sight_range_m(state.position_m)
 
 
@@ -33,7 +33,7 @@ def measurement_jacobian(pulsar: Pulsar) -> np.ndarray:
     """
     H row for EKF: dh/dx.
 
-    For h = n_hat · r, only position states are nonzero (first 3).
+    For h = n_hat  |  r, only position states are nonzero (first 3).
     """
     H = np.zeros(NAV_STATE_DIM)
     H[idx_pos] = pulsar.unit_vector_icrs

@@ -69,7 +69,7 @@ def plot_visibility_timeline(
     ax0 = axes[0]
     ax0.plot(t_hr, arr["earth_elevation_deg"], color="#2563eb", lw=1.0)
     ax0.axhline(0.0, color="k", lw=0.6, ls=":")
-    ax0.axhline(5.0, color="#f59e0b", lw=0.8, ls="--", label="GNSS mask (5°)")
+    ax0.axhline(5.0, color="#f59e0b", lw=0.8, ls="--", label="GNSS mask (5 deg)")
     _shade_blackout(ax0, t_hr, arr["in_blackout"])
     ax0.set_ylabel("Earth elev. (deg)")
     ax0.legend(loc="upper right", fontsize=9)
@@ -114,7 +114,7 @@ def plot_orbit_colored_by_blackout(
     traj: PropagatedTrajectory,
     timeline: VisibilityTimeline,
     *,
-    title: str = "ELFO orbit — GNSS blackout segments",
+    title: str = "ELFO orbit - GNSS blackout segments",
 ):
     """3D MCI orbit: red = far-side blackout, blue = GNSS-visible."""
     plt = _require_matplotlib()
@@ -158,7 +158,7 @@ def plot_orbit_blackout_xy(
     traj: PropagatedTrajectory,
     timeline: VisibilityTimeline,
     *,
-    title: str = "XY projection — blackout along track",
+    title: str = "XY projection - blackout along track",
 ):
     """Moon-centered XY view with blackout-colored ground track."""
     plt = _require_matplotlib()
@@ -231,7 +231,7 @@ def plot_orbit_colored_by_policy(
     ax.set_xlabel("x (km)")
     ax.set_ylabel("y (km)")
     ax.set_zlabel("z (km)")
-    ax.set_title(title or f"ELFO orbit — {policy_display_name(policy)}")
+    ax.set_title(title or f"ELFO orbit - {policy_display_name(policy)}")
     ax.legend(fontsize=9, loc="upper left")
     _set_equal_3d(ax, pos)
     fig.tight_layout()
@@ -266,7 +266,7 @@ def plot_policy_segment_timeline(
     ax.set_yticks(range(len(unique)))
     ax.set_yticklabels([segment_plot_label(s) for s in unique], fontsize=9)
     ax.set_xlabel("time since epoch (hr)")
-    ax.set_title(title or f"Planned segments — {policy_display_name(policy)}")
+    ax.set_title(title or f"Planned segments - {policy_display_name(policy)}")
     ax.legend(loc="upper right", fontsize=8, ncol=2, frameon=True)
     ax.grid(True, ls=":", alpha=0.4)
     fig.tight_layout()
@@ -277,7 +277,7 @@ def plot_orbit_colored_by_mode(
     traj: PropagatedTrajectory,
     timeline: VisibilityTimeline,
     *,
-    title: str = "ELFO orbit — geometric source availability",
+    title: str = "ELFO orbit - geometric source availability",
 ):
     """3D Moon-centered orbit colored by visibility (GNSS / relay / blackout)."""
     plt = _require_matplotlib()

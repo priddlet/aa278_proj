@@ -2,8 +2,8 @@
 """
 Monte Carlo comparison: constant CWNA vs gravity-scaled Q (periapsis-aware).
 
-Constant: fixed ``process_noise_accel`` (m²/s³).
-Gravity-scaled: q_a(r) ≈ (scale · GM/r²)² updated each predict from estimate radius.
+Constant: fixed ``process_noise_accel`` (m^2/s^3).
+Gravity-scaled: q_a(r) approx (scale  |  GM/r^2)^2 updated each predict from estimate radius.
 
 Usage:
     python scripts/sweep_process_noise.py --filter-predict --trials 10
@@ -42,7 +42,7 @@ from pulsar_nav.spice.kernels import load_kernels
 
 
 def gravity_reference_pacc(traj) -> float:
-    """RMS ‖a_truth‖² along arc (m²/s³) — scalar reference, not periapsis-varying."""
+    """RMS norm(a_truth)^2 along arc (m^2/s^3) - scalar reference, not periapsis-varying."""
     cfg = DynamicsConfig(include_earth=True, include_sun=True)
     norms_m_s2: list[float] = []
     for i in range(len(traj.et)):
@@ -54,7 +54,7 @@ def gravity_reference_pacc(traj) -> float:
 
 
 def periapsis_q_range_km(traj, *, scale: float = 1.0) -> tuple[float, float]:
-    """Min/max q_a (m²/s³) from Moon-centered truth radius over arc."""
+    """Min/max q_a (m^2/s^3) from Moon-centered truth radius over arc."""
     r_km = np.linalg.norm(traj.position_mci_km, axis=1)
     qa = [gravity_scaled_q_accel(float(r), scale=scale) for r in r_km]
     return float(min(qa)), float(max(qa))
@@ -125,26 +125,26 @@ def _markdown_table(
     lines = [
         f"# {title}",
         "",
-        f"**EKF predict:** {predict_label} · **trials:** {n_trials}",
+        f"**EKF predict:** {predict_label}  |  **trials:** {n_trials}",
         "",
-        "| Mode | Q setting | note | policy | final μ (km) | RMS (km) | "
-        "blk μ (km) | non-blk μ (km) | med NIS/df | |b| mean (m) |",
+        "| Mode | Q setting | note | policy | final mu (km) | RMS (km) | "
+        "blk mu (km) | non-blk mu (km) | med NIS/df | |b| mean (m) |",
         "|------|-----------|------|--------|--------------|----------|"
         "------------|----------------|------------|-------------|",
         "",
         q_description,
-        f"Truth-radius range: **{r_min_km:.0f}–{r_max_km:.0f} km**. "
-        f"Gravity-scaled q_a at truth radii (scale=1): **{_format_sci(qa_peri[0])}–{_format_sci(qa_peri[1])}** m²/s³. "
-        f"Scalar RMS reference q_a ≈ **{_format_sci(gravity_ref)}** m²/s³.",
+        f"Truth-radius range: **{r_min_km:.0f}-{r_max_km:.0f} km**. "
+        f"Gravity-scaled q_a at truth radii (scale=1): **{_format_sci(qa_peri[0])}-{_format_sci(qa_peri[1])}** m^2/s^3. "
+        f"Scalar RMS reference q_a approx **{_format_sci(gravity_ref)}** m^2/s^3.",
         "",
-        "Target **med NIS/df ≈ 1** under filter CV / dynamics predict. "
+        "Target **med NIS/df approx 1** under filter CV / dynamics predict. "
         "XNAV-only: timing blank (MSP-only H). "
-        "**|b| mean** = mean |b_rx−b_truth| (m) on GNSS/LunaNet pseudorange epochs.",
+        "**|b| mean** = mean |b_rx-b_truth| (m) on GNSS/LunaNet pseudorange epochs.",
         "",
     ]
     for r in rows:
-        nis = r["nis_median_dof"] if r["nis_median_dof"] != "" else "—"
-        tmg = r["timing_mean_m"] if r["timing_mean_m"] != "" else "—"
+        nis = r["nis_median_dof"] if r["nis_median_dof"] != "" else "-"
+        tmg = r["timing_mean_m"] if r["timing_mean_m"] != "" else "-"
         lines.append(
             f"| {r['q_mode']} | {r['q_label']} | {r['q_note']} | {r['policy']} | "
             f"{r['final_mean_km']:.2f} | {r['rms_km']:.2f} | {r['blackout_mean_km']:.2f} | "
@@ -235,12 +235,12 @@ def main() -> None:
     )
 
     print(
-        f"\nQ sweep — {args.preset}, {duration_s/3600:.1f} hr, {predict_label}, n={n_trials}"
+        f"\nQ sweep - {args.preset}, {duration_s/3600:.1f} hr, {predict_label}, n={n_trials}"
     )
-    print(f"Radius: {r_min:.0f}–{r_max:.0f} km  |  q_a(scale=1): {_format_sci(qa_peri[0])}–{_format_sci(qa_peri[1])} m²/s³")
+    print(f"Radius: {r_min:.0f}-{r_max:.0f} km  |  q_a(scale=1): {_format_sci(qa_peri[0])}-{_format_sci(qa_peri[1])} m^2/s^3")
     if args.dynamics_predict:
         print(
-            "HW2 sigma_acc_km (km/s²/√s): "
+            "HW2 sigma_acc_km (km/s^2/sqrt(s)): "
             + ", ".join(_format_sci(s) for s in sigma_values)
         )
     else:
@@ -284,7 +284,7 @@ def main() -> None:
         grav_sweep = run_gravity_q_scale_sweep(grav_scales, base_config=base)
         for scale, result in sorted(grav_sweep.items(), key=lambda kv: kv[0]):
             q_lo, q_hi = periapsis_q_range_km(traj, scale=scale)
-            note = f"q_a∈[{_format_sci(q_lo)},{_format_sci(q_hi)}]"
+            note = f"q_a in [{_format_sci(q_lo)},{_format_sci(q_hi)}]"
             rows.extend(
                 _rows_from_result(
                     result,
@@ -309,17 +309,17 @@ def main() -> None:
 
     if args.dynamics_predict:
         q_desc = (
-            "**HW2 CWNA:** `dynamics_sigma_acc_km` (km/s²/√s) on RK45+STM predict; "
+            "**HW2 CWNA:** `dynamics_sigma_acc_km` (km/s^2/sqrt(s)) on RK45+STM predict; "
             "clock Q from HW2 RAFS PSDs. "
         )
     else:
         q_desc = (
-            "**Constant CWNA:** fixed `process_noise_accel` (m²/s³). "
-            "**Gravity-scaled:** q_a(r) ≈ (scale·GM/r²)² each step (periapsis-aware). "
+            "**Constant CWNA:** fixed `process_noise_accel` (m^2/s^3). "
+            "**Gravity-scaled:** q_a(r) approx (scale | GM/r^2)^2 each step (periapsis-aware). "
         )
     md = _markdown_table(
         rows,
-        title=f"Process-noise sweep — {args.preset.upper()}",
+        title=f"Process-noise sweep - {args.preset.upper()}",
         predict_label=predict_title,
         n_trials=n_trials,
         gravity_ref=g_ref,

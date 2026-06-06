@@ -21,9 +21,9 @@ from pulsar_nav.simulation.policy import NavPolicy
 
 def _timing_display(policy: NavPolicy, stats: PolicyStats) -> tuple[str, str]:
     if policy == NavPolicy.XNAV_ONLY:
-        return "—", "—"
-    t_mean = f"{stats.timing_mean_m:.2f}" if math.isfinite(stats.timing_mean_m) else "—"
-    t_p95 = f"{stats.timing_p95_m:.2f}" if math.isfinite(stats.timing_p95_m) else "—"
+        return "-", "-"
+    t_mean = f"{stats.timing_mean_m:.2f}" if math.isfinite(stats.timing_mean_m) else "-"
+    t_p95 = f"{stats.timing_p95_m:.2f}" if math.isfinite(stats.timing_p95_m) else "-"
     return t_mean, t_p95
 
 
@@ -54,26 +54,26 @@ def _main_summary_md(
     cfg = result.config
     bf = result.timeline.blackout_fraction if result.timeline else float("nan")
     lines = [
-        f"## Monte Carlo — {preset.upper()} ({predict_label})",
+        f"## Monte Carlo - {preset.upper()} ({predict_label})",
         "",
-        f"EKF predict: **{predict_label}** · "
-        f"Arc: **{cfg.duration_s / 3600:.1f} hr** · "
-        f"Trials: **{cfg.n_trials}** · "
-        f"TOA σ: **{cfg.toa_sigma_s * 1e6:.1f} µs** · pulsars: "
+        f"EKF predict: **{predict_label}**  |  "
+        f"Arc: **{cfg.duration_s / 3600:.1f} hr**  |  "
+        f"Trials: **{cfg.n_trials}**  |  "
+        f"TOA sigma: **{cfg.toa_sigma_s * 1e6:.1f} us**  |  pulsars: "
         f"**{cfg.n_pulsars if cfg.n_pulsars is not None else 'all (5)'}**",
         "",
         f"_{predict_note}_",
         "",
         f"Blackout fraction: **{100.0 * bf:.1f}%**",
         "",
-        "_Timing: |b_rx−b_truth| (m) averaged over GNSS/LunaNet pseudorange epochs only. "
+        "_Timing: |b_rx-b_truth| (m) averaged over GNSS/LunaNet pseudorange epochs only. "
         "XNAV-only and MSP-only blackout do not constrain b in H._",
         "",
-        f"_Steady μ / Steady RMS: mean and RMS over the last "
+        f"_Steady mu / Steady RMS: mean and RMS over the last "
         f"{int(STEADY_STATE_ARC_FRACTION * 100)}% of arc epochs (post-convergence; "
         f"excludes epoch-0 init spike)._",
         "",
-        "| Policy | Final mean (km) | Final p95 (km) | RMS (km) | Steady μ (km) | Steady RMS (km) | Blackout μ (km) | Non-blackout μ (km) | |b| mean (m) | |b| p95 (m) |",
+        "| Policy | Final mean (km) | Final p95 (km) | RMS (km) | Steady mu (km) | Steady RMS (km) | Blackout mu (km) | Non-blackout mu (km) | |b| mean (m) | |b| p95 (m) |",
         "|--------|-----------------|----------------|----------|---------------|-----------------|-----------------|---------------------|------------|-----------|",
     ]
     for pol in cfg.policies:
@@ -93,9 +93,9 @@ def _pulsar_sweep_md(sweep: dict[int, MonteCarloResult]) -> str:
     lines = [
         "## Pulsar count sweep",
         "",
-        "_|b| timing on GNSS/LunaNet pseudorange epochs; XNAV-only: — (clock not in H)._",
+        "_|b| timing on GNSS/LunaNet pseudorange epochs; XNAV-only: - (clock not in H)._",
         "",
-        "| MSPs | Policy | Final mean (km) | Final p95 (km) | Blackout μ (km) | |b| mean (m) | |b| p95 (m) |",
+        "| MSPs | Policy | Final mean (km) | Final p95 (km) | Blackout mu (km) | |b| mean (m) | |b| p95 (m) |",
         "|------|--------|-----------------|----------------|-----------------|------------|-----------|",
     ]
     for n in sorted(sweep.keys()):
@@ -115,9 +115,9 @@ def _toa_sweep_md(sweep: dict[float, MonteCarloResult]) -> str:
     lines = [
         "## TOA noise sweep",
         "",
-        "_|b| timing on GNSS/LunaNet pseudorange epochs; XNAV-only: — (clock not in H)._",
+        "_|b| timing on GNSS/LunaNet pseudorange epochs; XNAV-only: - (clock not in H)._",
         "",
-        "| TOA µs | Policy | Final mean (km) | Final p95 (km) | Blackout μ (km) | |b| mean (m) | |b| p95 (m) |",
+        "| TOA us | Policy | Final mean (km) | Final p95 (km) | Blackout mu (km) | |b| mean (m) | |b| p95 (m) |",
         "|--------|--------|-----------------|----------------|-----------------|------------|-----------|",
     ]
     for sig_us in sorted(sweep.keys()):
@@ -264,11 +264,11 @@ def write_tables_index(
             "",
             "## Per-pipeline files",
             "",
-            "- `main_summary.md` — policy comparison (km)",
-            "- `main_policy_summary.csv` — aggregated stats",
-            "- `main_trials.csv` — per-trial rows",
-            "- `pulsar_sweep.md` / `.csv` — MSP count sensitivity; includes |b| timing (m) on PR epochs",
-            "- `toa_sweep.md` / `.csv` — TOA σ sensitivity; includes |b| timing (m) on PR epochs",
+            "- `main_summary.md` - policy comparison (km)",
+            "- `main_policy_summary.csv` - aggregated stats",
+            "- `main_trials.csv` - per-trial rows",
+            "- `pulsar_sweep.md` / `.csv` - MSP count sensitivity; includes |b| timing (m) on PR epochs",
+            "- `toa_sweep.md` / `.csv` - TOA sigma sensitivity; includes |b| timing (m) on PR epochs",
             "",
             f"## SEXTANT / NICER MSP catalog ({preset})",
             "",
@@ -276,10 +276,50 @@ def write_tables_index(
             "",
             "## Stress baseline (`gnss_coast`)",
             "",
-            "Not in default three-policy tables. Run:",
-            "`python scripts/demo_monte_carlo.py --trials 20 --stress-coast --no-show`",
+            "Not in default three-policy tables. Enable `NavPolicy.GNSS_COAST` in a custom MC config.",
             "",
         ]
     )
     index_path.parent.mkdir(parents=True, exist_ok=True)
     index_path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def export_pulsar_catalog_table(out_dir: Path, *, preset: str = "elfo") -> None:
+    """Write ``pulsar_catalog.md`` and ``.csv`` under ``out_dir/common``."""
+    from pulsar_nav.catalog import load_catalog
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    pulsars = load_catalog()
+    md_lines = [
+        f"## SEXTANT MSP catalog - {preset.upper()} simulation",
+        "",
+        "All five millisecond pulsars are used for **navigation** (LOS range, sigma = c*sigma_TOA).",
+        "Catalog **f0** supports **timing** / phase models; the MC EKF uses linear n_hat dot r only.",
+        "",
+        "Default campaign: **all 5 MSPs** every **120 s**; sigma_TOA = **1 us** (~300 m range sigma).",
+        "",
+        "| Name | J-name | RA (hms) | Dec (dms) | f0 (Hz) | f1 (Hz/s) | DM (pc/cm^3) | Navigation | Timing model |",
+        "|------|--------|----------|-----------|---------|-----------|-------------|------------|--------------|",
+    ]
+    csv_rows: list[dict] = []
+    for p in pulsars:
+        md_lines.append(
+            f"| {p.name} | {p.jname or ''} | {p.raj} | {p.decj} | {p.f0_hz:.3f} | {p.f1_hz_s:.2e} | "
+            f"{p.dm if p.dm is not None else ''} | LOS XNAV | f0, f1, pepoch |"
+        )
+        csv_rows.append(
+            {
+                "name": p.name,
+                "jname": p.jname or "",
+                "raj": p.raj,
+                "decj": p.decj,
+                "f0_hz": p.f0_hz,
+                "f1_hz_s": p.f1_hz_s,
+                "dm": p.dm if p.dm is not None else "",
+                "navigation_role": "LOS XNAV (n_hat dot r)",
+            }
+        )
+    md_lines.append("")
+    (out_dir / "pulsar_catalog.md").write_text("\n".join(md_lines), encoding="utf-8")
+    _write_csv(out_dir / "pulsar_catalog.csv", csv_rows)

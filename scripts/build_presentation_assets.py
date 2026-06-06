@@ -4,9 +4,9 @@ Build presentation figures, markdown tables, and Excel for AA278 slides.
 
 Two navigation figure pipelines (plus shared geometry):
 
-  figures/presentation/common/          — visibility & orbit (no EKF)
-  figures/presentation/truth_velocity/  — MC + traces, predict with truth v
-  figures/presentation/filter_predict/  — MC + traces, EKF CV predict only
+  figures/presentation/common/          - visibility & orbit (no EKF)
+  figures/presentation/truth_velocity/  - MC + traces, predict with truth v
+  figures/presentation/filter_predict/  - MC + traces, EKF CV predict only
 
 Results: results/presentation_{truth_velocity,filter_predict}.md and .xlsx
 """
@@ -86,7 +86,7 @@ PIPELINES = {
         slug="filter_dynamics",
         label="Filter dynamics predict",
         predict_mode=PredictMode.DYNAMICS,
-        short_note="EKF RK45+STM predict (HW2 Tier A); σ_acc km/s²/√s process noise.",
+        short_note="EKF RK45+STM predict (HW2 Tier A); sigma_acc km/s^2/sqrt(s) process noise.",
     ),
 }
 
@@ -101,7 +101,7 @@ def parse_args() -> argparse.Namespace:
         "--duration",
         type=float,
         default=None,
-        help="MC arc hours (default: 2× ELFO period)",
+        help="MC arc hours (default: 2 x  ELFO period)",
     )
     p.add_argument("--toa-us", type=float, default=1.0)
     p.add_argument("--quick", action="store_true", help="5 MC trials, skip sweeps and envelope")
@@ -138,19 +138,19 @@ def _summary_markdown(
     }
     predict = predict_labels[pipeline.predict_mode]
     lines = [
-        f"## Monte Carlo — {preset.upper()} ({pipeline.label})",
+        f"## Monte Carlo - {preset.upper()} ({pipeline.label})",
         "",
-        f"EKF predict: **{predict}** · "
-        f"Arc: **{result.config.duration_s / 3600:.1f} hr** · "
-        f"Trials: **{result.config.n_trials}** · "
-        f"TOA σ: **{result.config.toa_sigma_s * 1e6:.1f} µs**",
+        f"EKF predict: **{predict}**  |  "
+        f"Arc: **{result.config.duration_s / 3600:.1f} hr**  |  "
+        f"Trials: **{result.config.n_trials}**  |  "
+        f"TOA sigma: **{result.config.toa_sigma_s * 1e6:.1f} us**",
         "",
         f"_{pipeline.short_note}_",
         "",
     ]
     if result.config.include_disturbances:
         lines.append(
-            "Force model: **Moon J2 + SRP** (HW2 P3 γ) on truth arc; "
+            "Force model: **Moon J2 + SRP** (HW2 P3 gamma) on truth arc; "
             "filter dynamics predict uses the same `DynamicsConfig`."
         )
         lines.append("")
@@ -161,10 +161,10 @@ def _summary_markdown(
 
     lines.extend(
         [
-            "_Timing: |b_rx−b_truth| (m) on GNSS/LunaNet pseudorange epochs; "
+            "_Timing: |b_rx-b_truth| (m) on GNSS/LunaNet pseudorange epochs; "
             "XNAV-only / MSP-only blackout: clock not in H._",
             "",
-            "| Policy | Final mean (km) | Final p95 (km) | RMS (km) | Steady μ (km) | Steady RMS (km) | Blackout μ (km) | Non-blackout μ (km) | |b| mean (m) | |b| p95 (m) |",
+            "| Policy | Final mean (km) | Final p95 (km) | RMS (km) | Steady mu (km) | Steady RMS (km) | Blackout mu (km) | Non-blackout mu (km) | |b| mean (m) | |b| p95 (m) |",
             "|--------|-----------------|----------------|----------|---------------|-----------------|-----------------|---------------------|------------|-----------|",
         ]
     )
@@ -172,16 +172,16 @@ def _summary_markdown(
 
     pct = int(STEADY_STATE_ARC_FRACTION * 100)
     lines.append(
-        f"_Steady μ / Steady RMS: last {pct}% of arc epochs (excludes epoch-0 init spike)._"
+        f"_Steady mu / Steady RMS: last {pct}% of arc epochs (excludes epoch-0 init spike)._"
     )
     lines.append("")
     for pol in result.config.policies:
         s = result.by_policy[pol]
         if pol.value == "xnav_only":
-            t_mean, t_p95 = "—", "—"
+            t_mean, t_p95 = "-", "-"
         else:
-            t_mean = f"{s.timing_mean_m:.2f}" if math.isfinite(s.timing_mean_m) else "—"
-            t_p95 = f"{s.timing_p95_m:.2f}" if math.isfinite(s.timing_p95_m) else "—"
+            t_mean = f"{s.timing_mean_m:.2f}" if math.isfinite(s.timing_mean_m) else "-"
+            t_p95 = f"{s.timing_p95_m:.2f}" if math.isfinite(s.timing_p95_m) else "-"
         lines.append(
             f"| {pol.value} | {s.final_mean_m / 1e3:.2f} | {s.final_p95_m / 1e3:.2f} | "
             f"{s.rms_error_m / 1e3:.2f} | {s.steady_state_mean_m / 1e3:.2f} | "
@@ -248,8 +248,8 @@ def build_common_figures(
     if args.preset == "elfo":
         t_hr = elfo_orbital_period_s() / 3600.0
         n_rev = args.visibility_hr / t_hr
-        orbit_line = f" · {elfo_orbit_summary()} · {n_rev:.2f} rev"
-    print(f"  {args.preset.upper()} {args.visibility_hr:.0f} hr sim{orbit_line} — blackout {bf:.1f}%")
+        orbit_line = f"  |  {elfo_orbit_summary()}  |  {n_rev:.2f} rev"
+    print(f"  {args.preset.upper()} {args.visibility_hr:.0f} hr sim{orbit_line} - blackout {bf:.1f}%")
     from pulsar_nav.visibility.gnss_coverage import gnss_sidelobe_coverage_stats
 
     gnss_cov = gnss_sidelobe_coverage_stats(vis_traj, vis_tl)
@@ -260,7 +260,7 @@ def build_common_figures(
         saved.append(name)
         print(f"  saved {name}")
 
-    vis_title = f"ELFO visibility — {args.visibility_hr:.0f}-hr simulation"
+    vis_title = f"ELFO visibility - {args.visibility_hr:.0f}-hr simulation"
     if args.preset == "elfo":
         vis_title += f" ({elfo_orbit_summary()})"
     _save(
@@ -280,7 +280,7 @@ def build_common_figures(
 
     _save(
         plot_orbit_colored_by_blackout(
-            vis_traj, vis_tl, title=f"{args.preset.upper()} — GNSS blackout (3D)"
+            vis_traj, vis_tl, title=f"{args.preset.upper()} - GNSS blackout (3D)"
         ),
         f"{args.preset}_orbit_blackout_3d.png",
     )
@@ -301,14 +301,14 @@ def build_common_figures(
     if args.preset == "elfo":
         t_hr = elfo_orbital_period_s() / 3600.0
         orbit_md = (
-            f"{elfo_orbit_summary()} · **{args.visibility_hr / t_hr:.2f}** revolutions in arc · "
+            f"{elfo_orbit_summary()}  |  **{args.visibility_hr / t_hr:.2f}** revolutions in arc  |  "
         )
     md = (
-        f"## Common geometry — {args.preset.upper()}\n\n"
-        f"Simulation arc: **{args.visibility_hr:.0f} hr** · {orbit_md}"
-        f"Blackout: **{bf:.1f}%** · Windows: **{len(vis_tl.windows)}**\n\n"
-        "_Not the LCRNS 30-h reference orbit (a≈11 300 km, T≈30 h). "
-        f"Monte Carlo blackout **~64%** uses **{DEFAULT_MC_DURATION_S / 3600:.1f} hr** (2× period).\n\n"
+        f"## Common geometry - {args.preset.upper()}\n\n"
+        f"Simulation arc: **{args.visibility_hr:.0f} hr**  |  {orbit_md}"
+        f"Blackout: **{bf:.1f}%**  |  Windows: **{len(vis_tl.windows)}**\n\n"
+        "_Not the LCRNS 30-h reference orbit (aapprox11 300 km, Tapprox30 h). "
+        f"Monte Carlo blackout **~64%** uses **{DEFAULT_MC_DURATION_S / 3600:.1f} hr** (2 x  period).\n\n"
         f"**{gnss_cov.summary_line()}** (geometric non-blackout vs sidelobe PRNs)\n\n"
         "Orbit segment plots show **planned** policy phases; MC propagation plots use "
         "**measured** segments from the filter run.\n"
@@ -367,7 +367,7 @@ def build_nav_pipeline(
             run,
             mc_tl,
             policy=policy,
-            title=f"{policy_display_name(policy)} — position error",
+            title=f"{policy_display_name(policy)} - position error",
         )
         fname = f"mc_{args.preset}_{policy.value}_propagation.png"
         save_figure(fig, nav_dir / fname)
@@ -376,7 +376,7 @@ def build_nav_pipeline(
         if policy in (NavPolicy.HYBRID, NavPolicy.GNSS_ONLY):
             fig_clk = plot_clock_timing_trace(
                 run,
-                title=f"{policy_display_name(policy)} — clock timing error",
+                title=f"{policy_display_name(policy)} - clock timing error",
             )
             if fig_clk is not None:
                 clk_fname = f"mc_{args.preset}_{policy.value}_clock_timing.png"
@@ -386,7 +386,7 @@ def build_nav_pipeline(
     fig_cmp = plot_all_policies_propagation(
         rep_runs,
         mc_tl,
-        title="Policy comparison — position error",
+        title="Policy comparison - position error",
     )
     save_figure(fig_cmp, nav_dir / f"mc_{args.preset}_all_policies_propagation.png")
     saved.append(f"mc_{args.preset}_all_policies_propagation.png")
@@ -400,7 +400,7 @@ def build_nav_pipeline(
             fig = plot_policy_error_envelope(
                 env,
                 mc_tl,
-                title=f"{policy_display_name(policy)} — Monte Carlo mean",
+                title=f"{policy_display_name(policy)} - Monte Carlo mean",
             )
             fname = f"mc_{args.preset}_{policy.value}_envelope.png"
             save_figure(fig, nav_dir / fname)
@@ -409,14 +409,14 @@ def build_nav_pipeline(
             plot_all_policies_envelope(
                 envelopes,
                 mc_tl,
-                title="Monte Carlo mean — all policies",
+                title="Monte Carlo mean - all policies",
             ),
             nav_dir / f"mc_{args.preset}_all_policies_envelope.png",
         )
         saved.append(f"mc_{args.preset}_all_policies_envelope.png")
 
     md_parts = [
-        f"# Presentation — {pipeline.label}",
+        f"# Presentation - {pipeline.label}",
         "",
         f"Directory: `figures/presentation/{pipeline.slug}/`",
         "",
@@ -534,7 +534,7 @@ def main() -> None:
         "",
         "| Pipeline | Directory | EKF time update | Use for slides |",
         "|----------|-----------|-----------------|----------------|",
-        f"| Shared geometry | `{common_dir.relative_to(ROOT)}` | — | Blackout, policy segments, truth orbit |",
+        f"| Shared geometry | `{common_dir.relative_to(ROOT)}` | - | Blackout, policy segments, truth orbit |",
     ]
 
     run_common = args.pipelines in ("both", "common")
@@ -569,7 +569,7 @@ def main() -> None:
             index_lines.append(
                 f"| {pipeline.label} | `{pres_root / pipeline.slug}` | "
                 f"{predict_row} | "
-                f"MC stats: `results/presentation_{pipeline.slug}.md` · "
+                f"MC stats: `results/presentation_{pipeline.slug}.md`  |  "
                 f"tables: `presentation/tables/{pipeline.slug}/` |"
             )
             index_pipeline_rows.append((pipeline.slug, pipeline.label, predict_row))

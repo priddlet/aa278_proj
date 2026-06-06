@@ -51,7 +51,7 @@ def test_elfo_propagation_radii(spice_loaded):
 
 @pytest.mark.skipif(not _kernels_available(), reason="SPICE kernels not on disk")
 def test_icrs_mci_frame_roundtrip_and_velocity(spice_loaded):
-    """ICRS ↔ MCI conversions match truth propagator storage."""
+    """ICRS <-> MCI conversions match truth propagator storage."""
     from pulsar_nav.measurements.pseudorange import icrs_position_to_mci_km
     from pulsar_nav.propagation.propagator import LunarPropagator
     from pulsar_nav.spice.ephemeris import (

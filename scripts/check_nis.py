@@ -3,7 +3,7 @@
 Filter-consistency (NIS/df) diagnostic for the hybrid lunar EKF.
 
 Target: **median(NIS/dof) ~ 1** with ~5% exceedance per epoch (chi-squared df = # measurements).
-Uses constant CWNA ``process_noise_accel`` (default 1e-4 m²/s³ in Monte Carlo).
+Uses constant CWNA ``process_noise_accel`` (default 1e-4 m^2/s^3 in Monte Carlo).
 
 Usage:
     python scripts/check_nis.py --filter-predict
@@ -111,7 +111,7 @@ def main() -> None:
     ap.add_argument("--trials", type=int, default=5)
     ap.add_argument("--toa-us", type=float, default=1.0)
     ap.add_argument("--gnss-sigma", type=float, default=15.0)
-    ap.add_argument("--pacc", type=float, default=1e-4, help="constant process_noise_accel (m²/s³)")
+    ap.add_argument("--pacc", type=float, default=1e-4, help="constant process_noise_accel (m^2/s^3)")
     ap.add_argument("--filter-predict", action="store_true")
     ap.add_argument(
         "--dynamics-predict",
@@ -147,8 +147,8 @@ def main() -> None:
     bf = 100.0 * float(np.mean([s.in_blackout for s in timeline.samples]))
 
     print(
-        f"\nNIS/df — {args.preset} {args.duration}h, predict={predict_mode}, "
-        f"Q_accel={args.pacc:g} m²/s³, blackout={bf:.1f}%, trials={args.trials}\n"
+        f"\nNIS/df - {args.preset} {args.duration}h, predict={predict_mode}, "
+        f"Q_accel={args.pacc:g} m^2/s^3, blackout={bf:.1f}%, trials={args.trials}\n"
         "Target: median NIS/df ~ 1.0, %>chi2_95 ~ 5%\n"
     )
 

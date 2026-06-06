@@ -6,11 +6,11 @@ C_LIGHT = 299_792_458.0  # m/s
 MJD_J2000 = 51544.5
 SECS_PER_DAY = 86400.0
 
-# Moon GM (km^3/s^2) for orbit-period helpers — matches propagation/dynamics.py.
+# Moon GM (km^3/s^2) for orbit-period helpers - matches propagation/dynamics.py.
 GM_MOON_KM3_S2 = 4902.800118
 ELFO_SMA_KM = 6541.4
 
-# Default TOA timing noise (1-sigma), seconds — navigation-grade MSP ~0.1–1 µs.
+# Default TOA timing noise (1-sigma), seconds - navigation-grade MSP ~0.1-1 us.
 DEFAULT_TOA_SIGMA_S = 1.0e-6
 
 
@@ -32,9 +32,9 @@ def elfo_orbit_summary(*, eccentricity: float = 0.6) -> str:
     t_hr = elfo_orbital_period_s() / 3600.0
     return (
         f"HW2 ELFO (a={ELFO_SMA_KM:.0f} km, e={eccentricity:.1f}, "
-        f"T≈{t_hr:.1f} h; rp≈{rp:.0f} km, ra≈{ra:.0f} km)"
+        f"Tapprox{t_hr:.1f} h; rpapprox{rp:.0f} km, raapprox{ra:.0f} km)"
     )
 
 
-# Recommended Monte Carlo arc: ≥2 full orbits for stable blackout statistics.
+# Recommended Monte Carlo arc: >=2 full orbits for stable blackout statistics.
 DEFAULT_MC_DURATION_S = 2.0 * elfo_orbital_period_s()

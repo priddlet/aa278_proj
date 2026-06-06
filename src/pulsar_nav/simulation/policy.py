@@ -6,7 +6,7 @@ from enum import Enum
 
 from pulsar_nav.visibility.blackout import NavMode, VisibilitySample
 
-# Minimum sidelobe PRNs for "trackable" GNSS epoch reporting (LuGRE-style 0–4 regime).
+# Minimum sidelobe PRNs for "trackable" GNSS epoch reporting (LuGRE-style 0-4 regime).
 MIN_TRACKABLE_GNSS_PRNS = 4
 
 
@@ -14,7 +14,7 @@ class NavPolicy(str, Enum):
     """
     Three primary full-arc scenarios (switching by GNSS blackout).
 
-    LunaNet is **supplemental** on top of these phases when relays are visible —
+    LunaNet is **supplemental** on top of these phases when relays are visible -
     not a fourth standalone phase.
     """
 
@@ -41,7 +41,7 @@ class PolicySegment(str, Enum):
     XNAV_BLACKOUT = "xnav (blackout)"
     XNAV_LONET_SUPPLEMENT = "xnav + LunaNet supplemental (blackout)"
     GNSS_VISIBLE = "gnss (sidelobe PRNs)"
-    GNSS_XNAV_FALLBACK = "gnss window, 0 PRN → xnav fallback"
+    GNSS_XNAV_FALLBACK = "gnss window, 0 PRN -> xnav fallback"
     HYBRID_VISIBLE = "hybrid (GNSS + XNAV + LunaNet)"
     HYBRID_GNSS_ONLY = "hybrid (GNSS + XNAV)"
     COAST = "coast (no measurements)"

@@ -1,4 +1,4 @@
-"""Sidelobe visibility gate (synthetic Moon–Earth–GPS geometry)."""
+"""Sidelobe visibility gate (synthetic Moon-Earth-GPS geometry)."""
 
 import numpy as np
 

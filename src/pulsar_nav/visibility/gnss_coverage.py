@@ -35,9 +35,9 @@ class GnssCoverageStats:
 
     def summary_line(self, *, min_prns: int = MIN_TRACKABLE_GNSS_PRNS) -> str:
         return (
-            f"Non-blackout epochs: {self.non_blackout_epochs} · "
-            f"≥1 PRN: {100.0 * self.fraction_any_prn:.1f}% · "
-            f"≥{min_prns} PRNs: {100.0 * self.fraction_trackable:.1f}%"
+            f"Non-blackout epochs: {self.non_blackout_epochs}  |  "
+            f">=1 PRN: {100.0 * self.fraction_any_prn:.1f}%  |  "
+            f">={min_prns} PRNs: {100.0 * self.fraction_trackable:.1f}%"
         )
 
 

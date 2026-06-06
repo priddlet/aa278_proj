@@ -80,7 +80,7 @@ class HybridRunResult:
         return float(np.sqrt(np.mean(self.position_error_m**2)))
 
     def timing_errors_constrained(self) -> np.ndarray:
-        """|b_rx − b_truth| on epochs with GNSS and/or LunaNet pseudoranges."""
+        """|b_rx - b_truth| on epochs with GNSS and/or LunaNet pseudoranges."""
         if self.clock_timing_error_m is None or self.clock_constrained is None:
             return np.array([], dtype=float)
         mask = self.clock_constrained.astype(bool)
@@ -112,7 +112,7 @@ class HybridRunResult:
 
 def timing_metrics_from_run(result: HybridRunResult, policy: NavPolicy) -> dict[str, float]:
     """
-    |b_rx − b_truth| over pseudorange epochs (GNSS and/or LunaNet).
+    |b_rx - b_truth| over pseudorange epochs (GNSS and/or LunaNet).
 
     XNAV-only and MSP-only blackout segments do not observe the clock in H;
     returns NaNs for ``NavPolicy.XNAV_ONLY``.

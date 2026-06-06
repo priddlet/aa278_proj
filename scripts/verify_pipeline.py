@@ -140,7 +140,7 @@ def check_measurements(traj, timeline, pulsars, et0) -> list[Check]:
             )
         )
 
-    # XNAV: b_truth not in H — residual with b_hat should not match zero-innovation at wrong b
+    # XNAV: b_truth not in H - residual with b_hat should not match zero-innovation at wrong b
     p = pulsars[0]
     xm = synthesize_measurement(p, pos, rng, 1e-6)
     st0 = NavState.from_pv(pos, np.zeros(3), clock_bias_m=0.0)
@@ -152,7 +152,7 @@ def check_measurements(traj, timeline, pulsars, et0) -> list[Check]:
             "3",
             "XNAV ignores clock",
             abs(r0 - r1) < 1e-6,
-            f"|Δresidual|={abs(r0-r1):.3e} m",
+            f"|Deltaresidual|={abs(r0-r1):.3e} m",
         )
     )
 
@@ -222,7 +222,7 @@ def check_predict_modes(traj, pulsars, timeline, et0) -> list[Check]:
 
     # CV and dynamics should differ from each other (generic state)
     diff = np.linalg.norm(pos_cv - pos_dyn)
-    out.append(_ok("4", "CV vs dynamics differ", diff > 1e-2, f"|Δr|={diff:.2f} m"))
+    out.append(_ok("4", "CV vs dynamics differ", diff > 1e-2, f"|Deltar|={diff:.2f} m"))
 
     # short hybrid runs finite
     for mode, tv, dyn in [

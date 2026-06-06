@@ -92,7 +92,7 @@ def earth_occults_los(
     earth_radius_km: float = EARTH_RADIUS_KM,
 ) -> bool:
     """
-    True if the Earth sphere blocks the straight line observer → target.
+    True if the Earth sphere blocks the straight line observer -> target.
 
     Sidelobe GNSS at the Moon requires the direct path to be Earth-occulted;
     signals arrive via antenna sidelobes diffracting around the limb.

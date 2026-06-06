@@ -67,7 +67,7 @@ def _inv_cube(vec: np.ndarray) -> np.ndarray:
 
 
 def grad_inv_cube(vec: np.ndarray) -> np.ndarray:
-    """Jacobian of vec / |vec|^3 with respect to vec (3×3)."""
+    """Jacobian of vec / |vec|^3 with respect to vec (3 x 3)."""
     v = np.asarray(vec, dtype=float)
     norm = np.linalg.norm(v)
     if norm < 1e-12:
@@ -128,7 +128,7 @@ def acceleration_mci_jacobian_r(
     config: DynamicsConfig,
 ) -> np.ndarray:
     """
-    Jacobian da/dr for MCI specific force (km/s² per km).
+    Jacobian da/dr for MCI specific force (km/s^2 per km).
 
     Point-mass Moon, indirect Earth/Sun, optional SRP; J2 via local FD if enabled.
     """
@@ -169,7 +169,7 @@ def dynamics_jacobian_mci(
     et: float,
     config: DynamicsConfig,
 ) -> np.ndarray:
-    """6×6 Jacobian of [ṙ, v̇] = [v, a(r)] w.r.t. [r, v] in MCI."""
+    """6 x 6 Jacobian of [r_dot, v_dot] = [v, a(r)] w.r.t. [r, v] in MCI."""
     _ = v_mci  # velocity does not enter acceleration
     j = np.zeros((6, 6))
     j[0:3, 3:6] = np.eye(3)

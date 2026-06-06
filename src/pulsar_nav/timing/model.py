@@ -28,6 +28,6 @@ def predicted_toa_offset_s(
     """
     First-order TOA offset from position error (Sheikh linearized).
 
-    delta_t ≈ (n_hat · delta_r) / c
+    delta_t approx (n_hat  |  delta_r) / c
     """
     return float(np.dot(pulsar.unit_vector_icrs, position_error_m) / C_LIGHT)

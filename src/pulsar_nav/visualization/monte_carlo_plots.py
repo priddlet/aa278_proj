@@ -89,7 +89,7 @@ def plot_pulsar_count_sweep(
     ax.axhline(LUNANET_REQUIREMENT_M / 1e3, color="#f59e0b", ls=":", label="LunaNet 13.43 m")
     ax.set_xlabel("number of pulsars")
     ax.set_ylabel("error (km)")
-    ax.set_title(title or f"Pulsar count — {policy_display_name(policy)}")
+    ax.set_title(title or f"Pulsar count - {policy_display_name(policy)}")
     ax.legend()
     ax.grid(True, ls=":", alpha=0.5)
     fig.tight_layout()
@@ -109,8 +109,8 @@ def plot_policy_metrics_bars(result: MonteCarloResult, *, title: str | None = No
 
     fig, ax = plt.subplots(figsize=(9, 5))
     ax.bar(x - width, finals, width, label="final mean", color="#3b82f6")
-    ax.bar(x, blk, width, label="blackout segment μ", color="#ef4444")
-    ax.bar(x + width, non_blk, width, label="non-blackout μ", color="#22c55e")
+    ax.bar(x, blk, width, label="blackout segment mu", color="#ef4444")
+    ax.bar(x + width, non_blk, width, label="non-blackout mu", color="#22c55e")
     ax.set_xticks(x)
     ax.set_xticklabels([policy_display_name(p) for p in policies])
     ax.set_ylabel("position error (km)")
@@ -127,7 +127,7 @@ def plot_toa_noise_sweep(
     policies: tuple[NavPolicy, ...] | None = None,
     title: str | None = None,
 ):
-    """Final mean error vs TOA σ for each policy."""
+    """Final mean error vs TOA sigma for each policy."""
     plt = _require_matplotlib()
     sigmas_us = sorted(sweep.keys())
     policies = policies or (
@@ -148,7 +148,7 @@ def plot_toa_noise_sweep(
             lw=1.5,
         )
     ax.set_xscale("log")
-    ax.set_xlabel("TOA 1σ (µs)")
+    ax.set_xlabel("TOA 1-sigma (us)")
     ax.set_ylabel("final position error mean (km)")
     ax.set_title(title or "TOA noise sweep")
     ax.legend()
@@ -228,7 +228,7 @@ def plot_clock_timing_trace(
     title: str | None = None,
 ) -> "matplotlib.figure.Figure | None":
     """
-    |b_rx − b_truth| vs time on pseudorange epochs (GNSS / LunaNet).
+    |b_rx - b_truth| vs time on pseudorange epochs (GNSS / LunaNet).
 
     Returns None for XNAV-only (clock not observed in H on MSP-only epochs).
     """
@@ -248,7 +248,7 @@ def plot_clock_timing_trace(
         run.clock_timing_error_m[mask],
         lw=1.2,
         color=POLICY_COLORS.get(run.policy, "#333"),
-        label="|b_rx − b_truth| (PR epochs)",
+        label="|b_rx - b_truth| (PR epochs)",
     )
     if np.any(~mask):
         ax.axvspan(
@@ -262,7 +262,7 @@ def plot_clock_timing_trace(
     ax.set_ylabel("clock timing error (m)")
     ax.set_title(
         title
-        or f"{policy_display_name(run.policy)} — receiver clock bias error"
+        or f"{policy_display_name(run.policy)} - receiver clock bias error"
     )
     ax.grid(True, ls=":", alpha=0.5)
     ax.legend(loc="upper right", fontsize=9)
@@ -287,7 +287,7 @@ def plot_policy_error_propagation(
     _shade_policy_segments(ax, t_hr, timeline, policy, run=run)
     ax.set_xlabel("time since epoch (hr)")
     ax.set_ylabel("position error (km)")
-    ax.set_title(title or f"{policy_display_name(policy)} — position error")
+    ax.set_title(title or f"{policy_display_name(policy)} - position error")
     ax.grid(True, ls=":", alpha=0.5)
     ax.legend(
         handles=[
@@ -304,7 +304,7 @@ def plot_all_policies_propagation(
     runs: dict[NavPolicy, HybridRunResult],
     timeline: VisibilityTimeline,
     *,
-    title: str | None = "Policy comparison — position error",
+    title: str | None = "Policy comparison - position error",
     offset_km: float | None = None,
 ):
     """Overlay position error for hybrid, XNAV-only, and GNSS-only."""
@@ -323,7 +323,7 @@ def plot_all_policies_propagation(
     _shade_policy_segments(ax, t_hr, timeline, NavPolicy.GNSS_ONLY)
     ax.set_xlabel("time since epoch (hr)")
     ax.set_ylabel("position error (km)")
-    ax.set_title(title or "Policy comparison — position error")
+    ax.set_title(title or "Policy comparison - position error")
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles=handles + [_blackout_legend_handle(plt)], loc="upper right")
     ax.grid(True, ls=":", alpha=0.5)
@@ -339,12 +339,12 @@ def plot_policy_error_envelope(
     ymin_km: float | None = None,
 ):
     """
-    Mean error with p5–p95 band across Monte Carlo trials at each epoch.
+    Mean error with p5-p95 band across Monte Carlo trials at each epoch.
 
-    Note: a wide band (e.g. 0–70 km) at one time means *trials disagree then*,
-    not that a single run swings 0–70 km. After policy switch into blackout,
-    mean often drops to ~0.2–0.7 km (XNAV segment), which looks like “zero” on
-    GNSS-visible epochs; ``gnss_coast`` can reach 10–150 km in blackout (no updates).
+    Note: a wide band (e.g. 0-70 km) at one time means *trials disagree then*,
+    not that a single run swings 0-70 km. After policy switch into blackout,
+    mean often drops to ~0.2-0.7 km (XNAV segment), which looks like “zero” on
+    GNSS-visible epochs; ``gnss_coast`` can reach 10-150 km in blackout (no updates).
     """
     plt = _require_matplotlib()
     fig, ax = plt.subplots(figsize=(11, 4.5))
@@ -359,11 +359,11 @@ def plot_policy_error_envelope(
     ax.set_xlabel("time since epoch (hr)")
     ax.set_ylabel("position error (km)")
     ax.set_title(
-        title or f"{policy_display_name(envelope.policy)} — Monte Carlo mean"
+        title or f"{policy_display_name(envelope.policy)} - Monte Carlo mean"
     )
     ymax = float(np.nanmax(p95_km) * 1.05)
     if ymin_km is None:
-        # Avoid auto-scale 0–90 km when post-convergence mean is sub-km
+        # Avoid auto-scale 0-90 km when post-convergence mean is sub-km
         post = mean_km[int(len(mean_km) * 0.08) :]
         floor = max(0.0, float(np.nanpercentile(post, 5)) * 0.5) if post.size else 0.0
         ymin_km = min(floor, ymax * 0.05)
@@ -371,7 +371,7 @@ def plot_policy_error_envelope(
     ax.legend(
         handles=[
             plt.Line2D([0], [0], color=color, lw=1.4, label="mean"),
-            plt.Rectangle((0, 0), 1, 1, fc=color, alpha=0.2, label="p5–p95"),
+            plt.Rectangle((0, 0), 1, 1, fc=color, alpha=0.2, label="p5-p95"),
             _blackout_legend_handle(plt),
         ],
         loc="upper right",
@@ -385,7 +385,7 @@ def plot_all_policies_envelope(
     envelopes: dict[NavPolicy, PolicyErrorEnvelope],
     timeline: VisibilityTimeline,
     *,
-    title: str | None = "Monte Carlo mean — all policies",
+    title: str | None = "Monte Carlo mean - all policies",
 ):
     """Compare mean error envelopes on one axes."""
     plt = _require_matplotlib()
@@ -405,7 +405,7 @@ def plot_all_policies_envelope(
     p95_all = [env.p95_m / 1e3 for env in envelopes.values()]
     ymax = max(float(np.nanmax(p95_all)) * 1.05, 1.0)
     ax.set_ylim(bottom=0.0, top=ymax)
-    ax.set_title(title or "Monte Carlo mean — all policies")
+    ax.set_title(title or "Monte Carlo mean - all policies")
     ax.legend(loc="upper right")
     ax.grid(True, ls=":", alpha=0.5)
     fig.tight_layout()

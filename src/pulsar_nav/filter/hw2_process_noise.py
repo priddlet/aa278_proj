@@ -10,11 +10,11 @@ from pulsar_nav.filter.state import NAV_STATE_DIM, idx_clock_bias, idx_clock_dri
 KM_TO_M = 1000.0
 C_KM_S = C_LIGHT / KM_TO_M
 
-# RAFS clock PSDs from AA278 HW2 P3 (km²/s and km²/s³), scaled by c².
+# RAFS clock PSDs from AA278 HW2 P3 (km^2/s and km^2/s^3), scaled by c^2.
 HW2_CLK_Q1_KM2_S = 3.70e-24 * C_KM_S**2
 HW2_CLK_Q2_KM2_S3 = 1.87e-33 * C_KM_S**2
 
-# Typical filter acceleration tuning (km/s² / √s).
+# Typical filter acceleration tuning (km/s^2 / sqrt(s)).
 DEFAULT_DYNAMICS_SIGMA_ACC_KM = 1e-6
 
 
@@ -30,7 +30,7 @@ def process_noise_hw2(
     Discrete Q matching HW2 ``get_process_noise`` for [r, v, clkb, clkdr].
 
     State units: meters and m/s for position/velocity; clock bias/drift in meters
-  and m/s. Spare states (indices 8–9) receive zero process noise.
+  and m/s. Spare states (indices 8-9) receive zero process noise.
     """
     dt = float(dt_s)
     s2 = float(sigma_acc_km) ** 2
