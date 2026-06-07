@@ -16,14 +16,38 @@ from pulsar_nav.simulation.policy import NavPolicy
 
 PRIMARY_PIPELINE = "filter_dynamics"
 
+# Short figure filenames (no preset/mc prefixes; see presentation/INDEX.md)
+FIG_BLACKOUT_SPECS = "blackout_specs.png"
+FIG_ORBIT_BLACKOUT_3D_ORBIT = "orbit_blackout_3d_orbit.png"
+FIG_ORBIT_BLACKOUT_3D = "orbit_blackout_3d.png"
+FIG_ORBIT_BLACKOUT_XY = "orbit_blackout_xy.png"
+FIG_TRUTH_ORBIT = "truth_orbit.png"
+FIG_VISIBILITY_ORBIT = "visibility_orbit.png"
+FIG_VISIBILITY_TIMELINE = "visibility_timeline.png"
+FIG_ORBIT_POLICY = "orbit_{policy}.png"
+FIG_SEGMENTS_POLICY = "segments_{policy}.png"
+FIG_PREDICT_POLICY = "predict_{policy}.png"
+
+FIG_ERRORS_ALL = "errors_all.png"
+FIG_ERRORS_POLICY = "errors_{policy}.png"
+FIG_ENVELOPE_POLICY = "envelope_{policy}.png"
+FIG_ENVELOPE_ALL = "envelope_all.png"
+FIG_CLOCK_POLICY = "clock_{policy}.png"
+FIG_POLICY_BARS = "policy_bars.png"
+FIG_FINAL_BOXPLOT = "final_boxplot.png"
+FIG_FINAL_CDF = "final_cdf.png"
+FIG_PULSAR_SWEEP = "pulsar_sweep.png"
+FIG_TOA_SWEEP = "toa_sweep.png"
+FIG_Q_DIAGNOSTICS = "q_diagnostics.png"
+
 FILTER_DYNAMICS_ASSUMPTIONS = """
 ## Model assumptions (filter dynamics - primary campaign)
 
 | Item | Value |
 |------|--------|
-| **Truth orbit** | HW2 ELFO case 1: a = 6541.4 km, e = 0.6, **T approx 13.2 h** (not LCRNS 30 h) |
-| **Truth dynamics** | Moon + Earth + Sun indirect (HW2 P2), SPICE DE440 |
-| **EKF predict** | MCI RK45 + analytic STM; HW2 CWNA Q, `dynamics_sigma_acc_km = 1e-6` km/s^2/sqrt(s) |
+| **Truth orbit** | ELFO case 1: a = 6541.4 km, e = 0.6, **T approx 13.2 h** (not LCRNS 30 h) |
+| **Truth dynamics** | Moon + Earth + Sun indirect, SPICE DE440 |
+| **EKF predict** | MCI RK45 + analytic STM; CWNA Q, `dynamics_sigma_acc_km = 1e-6` km/s^2/sqrt(s) |
 | **Measurements** | Synthetic from **truth position** + noise (optimistic sensing) |
 | **XNAV** | All 5 SEXTANT MSPs, sigma_TOA = **1 us** (~300 m range sigma), linear `n_hat dot r` |
 | **GNSS / LunaNet** | Sidelobe PRNs, sigma = 15 m; LunaNet supplemental in blackout when relay visible |
@@ -34,31 +58,30 @@ FILTER_DYNAMICS_ASSUMPTIONS = """
 """.strip()
 
 COMMON_FIGURES: list[tuple[str, str]] = [
-    ("elfo_blackout_fraction_specs.png", "Blackout % - one orbit (T approx 13.2 h) vs 30 h sim vs MC arc"),
-    ("elfo_orbit_blackout_3d_one_orbit.png", "Orbit colored by blackout - one revolution"),
-    ("elfo_orbit_blackout_3d.png", "Orbit colored by blackout - 30 h visibility arc"),
-    ("elfo_orbit_blackout_xy.png", "Blackout map (Moon xy)"),
-    ("elfo_truth_propagation.png", "Truth trajectory (30 h arc)"),
-    ("elfo_visibility_one_orbit.png", "Visibility timeline - one orbit"),
-    ("elfo_visibility_timeline.png", "Visibility timeline - 30 h (approx 2.3 rev)"),
-    ("elfo_orbit_{policy}.png", "Orbit colored by planned policy phase"),
-    ("elfo_segments_{policy}.png", "Policy segment timeline"),
-    ("predict_mode_comparison_{policy}.png", "Predict-mode bar charts (hybrid / gnss_only / xnav_only)"),
+    (FIG_BLACKOUT_SPECS, "Blackout fraction by arc"),
+    (FIG_ORBIT_BLACKOUT_3D_ORBIT, "Orbit by blackout (one orbit)"),
+    (FIG_ORBIT_BLACKOUT_3D, "Orbit by blackout"),
+    (FIG_ORBIT_BLACKOUT_XY, "Blackout map (xy)"),
+    (FIG_TRUTH_ORBIT, "Truth orbit"),
+    (FIG_VISIBILITY_ORBIT, "Visibility (one orbit)"),
+    (FIG_VISIBILITY_TIMELINE, "Visibility timeline"),
+    (FIG_ORBIT_POLICY, "Orbit by policy"),
+    (FIG_SEGMENTS_POLICY, "Policy segments"),
+    (FIG_PREDICT_POLICY, "Predict mode comparison"),
 ]
 
 FILTER_DYNAMICS_FIGURES: list[tuple[str, str]] = [
-    ("mc_elfo_all_policies_propagation.png", "Position error propagation - all policies"),
-    ("mc_elfo_{policy}_propagation.png", "Position error propagation per policy"),
-    ("mc_elfo_{policy}_envelope.png", "MC error envelope (mean +/- band)"),
-    ("mc_elfo_all_policies_envelope.png", "MC envelope - all policies"),
-    ("mc_elfo_hybrid_clock_timing.png", "Clock timing error trace (hybrid)"),
-    ("mc_elfo_gnss_only_clock_timing.png", "Clock timing trace (gnss_only)"),
-    ("mc_elfo_policy_bars.png", "Bar chart - final / blackout / steady metrics"),
-    ("mc_elfo_boxplot.png", "Boxplot - final position error by policy"),
-    ("mc_elfo_final_cdf.png", "CDF - final position error"),
-    ("mc_elfo_pulsar_sweep.png", "Pulsar count sweep figure"),
-    ("mc_elfo_toa_sweep.png", "TOA noise sweep figure"),
-    ("mc_elfo_q_diagnostics.png", "Q diagnostics - median NIS/df vs sigma_acc"),
+    (FIG_ERRORS_ALL, "Position error (all policies)"),
+    (FIG_ERRORS_POLICY, "Position error"),
+    (FIG_ENVELOPE_POLICY, "Error envelope"),
+    (FIG_ENVELOPE_ALL, "Envelopes (all policies)"),
+    (FIG_CLOCK_POLICY, "Clock error"),
+    (FIG_POLICY_BARS, "Mean error by segment"),
+    (FIG_FINAL_BOXPLOT, "Final error boxplot"),
+    (FIG_FINAL_CDF, "Final error CDF"),
+    (FIG_PULSAR_SWEEP, "Pulsar count sweep"),
+    (FIG_TOA_SWEEP, "TOA noise sweep"),
+    (FIG_Q_DIAGNOSTICS, "Process noise diagnostics"),
 ]
 
 FILTER_DYNAMICS_TABLES: list[tuple[str, str]] = [
@@ -186,7 +209,7 @@ def unified_presentation_index_md(
     lines = [
         "# Presentation assets",
         "",
-        f"**Primary campaign:** `{PRIMARY_PIPELINE}` (EKF RK45+STM + HW2 process noise)",
+        f"**Primary campaign:** `{PRIMARY_PIPELINE}` (EKF RK45+STM + process noise)",
         "",
         "Regenerate: `python scripts/build_presentation_assets.py --pipelines filter_dynamics`",
         "",
@@ -238,7 +261,7 @@ def unified_presentation_index_md(
         for f, d in FILTER_DYNAMICS_FIGURES
         if not (
             quick_mode
-            and f in ("mc_elfo_pulsar_sweep.png", "mc_elfo_toa_sweep.png", "mc_elfo_q_diagnostics.png")
+            and f in (FIG_PULSAR_SWEEP, FIG_TOA_SWEEP, FIG_Q_DIAGNOSTICS)
         )
     ]
     lines.extend(_figure_table(fd_figs, "figures/presentation/filter_dynamics"))
@@ -275,7 +298,7 @@ def unified_presentation_index_md(
             "no separate figure/table trees.",
             "",
             "- `presentation/tables/common/predict_mode_comparison.md`",
-            "- `figures/presentation/common/predict_mode_comparison_*.png`",
+            "- `figures/presentation/common/predict_*.png`",
             "",
             "",
             "---",
@@ -312,7 +335,7 @@ def write_unified_presentation_index(
 
 def q_sweep_markdown(rows: list[dict], *, n_trials: int) -> str:
     lines = [
-        "## Q diagnostics - HW2 sigma_acc sweep",
+        "## Q diagnostics - sigma_acc sweep",
         "",
         f"**Trials:** {n_trials} | **Predict:** filter dynamics (RK45+STM)",
         "",

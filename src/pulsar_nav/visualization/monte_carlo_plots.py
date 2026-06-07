@@ -33,6 +33,52 @@ POLICY_COLORS = {
     NavPolicy.GNSS_COAST: "#6b7280",
 }
 
+# Exclude epoch-0 init offset (no EKF update at t=0) from autoscale.
+_ERROR_PLOT_SKIP_FRAC = 0.03
+
+
+def _error_plot_start_index(n: int, *, skip_fraction: float = _ERROR_PLOT_SKIP_FRAC) -> int:
+    """First sample index used when choosing y-axis limits."""
+    if n <= 1:
+        return 0
+    return min(max(1, int(np.ceil(n * skip_fraction))), n - 1)
+
+
+def _error_ylim_km(
+    *arrays_km: np.ndarray,
+    skip_fraction: float = _ERROR_PLOT_SKIP_FRAC,
+    pad_fraction: float = 0.12,
+    min_span_km: float = 0.5,
+) -> tuple[float, float]:
+    """
+    Y limits for position-error time series.
+
+    Skips the first few epochs so a large t=0 initialization spike does not
+    flatten the rest of the arc. Blackout coast errors after that window are
+    still included.
+    """
+    lengths = [len(a) for a in arrays_km if len(a)]
+    if not lengths:
+        return 0.0, 1.0
+    i0 = _error_plot_start_index(max(lengths), skip_fraction=skip_fraction)
+    chunks = [a[i0:].ravel() for a in arrays_km if len(a) > i0]
+    if not chunks:
+        return 0.0, 1.0
+    vals = np.concatenate(chunks)
+    vals = vals[np.isfinite(vals)]
+    if vals.size == 0:
+        return 0.0, 1.0
+    lo = max(0.0, float(np.nanmin(vals)))
+    hi = float(np.nanpercentile(vals, 99.5))
+    if hi <= lo:
+        hi = lo + min_span_km
+    pad = max(min_span_km * 0.1, (hi - lo) * pad_fraction)
+    ymin = max(0.0, lo - pad * 0.25)
+    ymax = hi + pad
+    if ymax - ymin < min_span_km:
+        ymax = ymin + min_span_km
+    return ymin, ymax
+
 
 def plot_final_error_boxplot(result: MonteCarloResult, *, title: str | None = None):
     """Box plot of final position error by policy."""
@@ -287,7 +333,9 @@ def plot_policy_error_propagation(
     _shade_policy_segments(ax, t_hr, timeline, policy, run=run)
     ax.set_xlabel("time since epoch (hr)")
     ax.set_ylabel("position error (km)")
-    ax.set_title(title or f"{policy_display_name(policy)} - position error")
+    ax.set_title(title or f"{policy_display_name(policy)} position error")
+    ymin, ymax = _error_ylim_km(run.position_error_m / 1e3)
+    ax.set_ylim(bottom=ymin, top=ymax)
     ax.grid(True, ls=":", alpha=0.5)
     ax.legend(
         handles=[
@@ -304,7 +352,7 @@ def plot_all_policies_propagation(
     runs: dict[NavPolicy, HybridRunResult],
     timeline: VisibilityTimeline,
     *,
-    title: str | None = "Policy comparison - position error",
+    title: str | None = "All policies",
     offset_km: float | None = None,
 ):
     """Overlay position error for hybrid, XNAV-only, and GNSS-only."""
@@ -323,7 +371,10 @@ def plot_all_policies_propagation(
     _shade_policy_segments(ax, t_hr, timeline, NavPolicy.GNSS_ONLY)
     ax.set_xlabel("time since epoch (hr)")
     ax.set_ylabel("position error (km)")
-    ax.set_title(title or "Policy comparison - position error")
+    ax.set_title(title or "All policies")
+    traces_km = [run.position_error_m / 1e3 for run in runs.values()]
+    ymin, ymax = _error_ylim_km(*traces_km)
+    ax.set_ylim(bottom=ymin, top=ymax)
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles=handles + [_blackout_legend_handle(plt)], loc="upper right")
     ax.grid(True, ls=":", alpha=0.5)
@@ -337,14 +388,13 @@ def plot_policy_error_envelope(
     *,
     title: str | None = None,
     ymin_km: float | None = None,
+    ymax_km: float | None = None,
 ):
     """
     Mean error with p5-p95 band across Monte Carlo trials at each epoch.
 
-    Note: a wide band (e.g. 0-70 km) at one time means *trials disagree then*,
-    not that a single run swings 0-70 km. After policy switch into blackout,
-    mean often drops to ~0.2-0.7 km (XNAV segment), which looks like “zero” on
-    GNSS-visible epochs; ``gnss_coast`` can reach 10-150 km in blackout (no updates).
+    Y-axis autoscale skips the first few epochs so the t=0 initialization spike
+    (no filter update at epoch 0) does not flatten post-update evolution.
     """
     plt = _require_matplotlib()
     fig, ax = plt.subplots(figsize=(11, 4.5))
@@ -359,15 +409,13 @@ def plot_policy_error_envelope(
     ax.set_xlabel("time since epoch (hr)")
     ax.set_ylabel("position error (km)")
     ax.set_title(
-        title or f"{policy_display_name(envelope.policy)} - Monte Carlo mean"
+        title or f"{policy_display_name(envelope.policy)} envelope"
     )
-    ymax = float(np.nanmax(p95_km) * 1.05)
-    if ymin_km is None:
-        # Avoid auto-scale 0-90 km when post-convergence mean is sub-km
-        post = mean_km[int(len(mean_km) * 0.08) :]
-        floor = max(0.0, float(np.nanpercentile(post, 5)) * 0.5) if post.size else 0.0
-        ymin_km = min(floor, ymax * 0.05)
-    ax.set_ylim(bottom=ymin_km, top=max(ymax, ymin_km + 0.5))
+    if ymin_km is None or ymax_km is None:
+        auto_ymin, auto_ymax = _error_ylim_km(mean_km, p5_km, p95_km)
+        ymin_km = auto_ymin if ymin_km is None else ymin_km
+        ymax_km = auto_ymax if ymax_km is None else ymax_km
+    ax.set_ylim(bottom=ymin_km, top=max(ymax_km, ymin_km + 0.5))
     ax.legend(
         handles=[
             plt.Line2D([0], [0], color=color, lw=1.4, label="mean"),
@@ -385,7 +433,7 @@ def plot_all_policies_envelope(
     envelopes: dict[NavPolicy, PolicyErrorEnvelope],
     timeline: VisibilityTimeline,
     *,
-    title: str | None = "Monte Carlo mean - all policies",
+    title: str | None = "Envelopes (all policies)",
 ):
     """Compare mean error envelopes on one axes."""
     plt = _require_matplotlib()
@@ -402,10 +450,11 @@ def plot_all_policies_envelope(
         )
     ax.set_xlabel("time since epoch (hr)")
     ax.set_ylabel("mean position error (km)")
-    p95_all = [env.p95_m / 1e3 for env in envelopes.values()]
-    ymax = max(float(np.nanmax(p95_all)) * 1.05, 1.0)
-    ax.set_ylim(bottom=0.0, top=ymax)
-    ax.set_title(title or "Monte Carlo mean - all policies")
+    mean_traces = [env.mean_m / 1e3 for env in envelopes.values()]
+    p95_traces = [env.p95_m / 1e3 for env in envelopes.values()]
+    ymin, ymax = _error_ylim_km(*mean_traces, *p95_traces)
+    ax.set_ylim(bottom=ymin, top=ymax)
+    ax.set_title(title or "Envelopes (all policies)")
     ax.legend(loc="upper right")
     ax.grid(True, ls=":", alpha=0.5)
     fig.tight_layout()

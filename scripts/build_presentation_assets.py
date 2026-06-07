@@ -48,6 +48,24 @@ from pulsar_nav.simulation.presentation_runs import (
     run_representative_policy_runs,
 )
 from pulsar_nav.simulation.predict_mode import PredictMode
+from pulsar_nav.simulation.presentation_manifest import (
+    FIG_CLOCK_POLICY,
+    FIG_ENVELOPE_ALL,
+    FIG_ENVELOPE_POLICY,
+    FIG_ERRORS_ALL,
+    FIG_ERRORS_POLICY,
+    FIG_FINAL_BOXPLOT,
+    FIG_FINAL_CDF,
+    FIG_ORBIT_BLACKOUT_3D,
+    FIG_ORBIT_BLACKOUT_XY,
+    FIG_ORBIT_POLICY,
+    FIG_POLICY_BARS,
+    FIG_PULSAR_SWEEP,
+    FIG_SEGMENTS_POLICY,
+    FIG_TOA_SWEEP,
+    FIG_TRUTH_ORBIT,
+    FIG_VISIBILITY_TIMELINE,
+)
 from pulsar_nav.spice.kernels import load_kernels
 
 
@@ -86,7 +104,7 @@ PIPELINES = {
         slug="filter_dynamics",
         label="Filter dynamics predict",
         predict_mode=PredictMode.DYNAMICS,
-        short_note="EKF RK45+STM predict (HW2 Tier A); sigma_acc km/s^2/sqrt(s) process noise.",
+        short_note="EKF RK45+STM predict; sigma_acc km/s^2/sqrt(s) process noise.",
     ),
 }
 
@@ -120,7 +138,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--disturbed-dynamics",
         action="store_true",
-        help="Truth + filter dynamics: Moon J2 and HW2 SRP (gamma=C_R*A/m)",
+        help="Truth + filter dynamics: Moon J2 and SRP on truth arc",
     )
     return p.parse_args()
 
@@ -150,7 +168,7 @@ def _summary_markdown(
     ]
     if result.config.include_disturbances:
         lines.append(
-            "Force model: **Moon J2 + SRP** (HW2 P3 gamma) on truth arc; "
+            "Force model: **Moon J2 + SRP** on truth arc; "
             "filter dynamics predict uses the same `DynamicsConfig`."
         )
         lines.append("")
@@ -260,42 +278,40 @@ def build_common_figures(
         saved.append(name)
         print(f"  saved {name}")
 
-    vis_title = f"ELFO visibility - {args.visibility_hr:.0f}-hr simulation"
-    if args.preset == "elfo":
-        vis_title += f" ({elfo_orbit_summary()})"
+    vis_title = "Visibility timeline"
     _save(
         plot_visibility_timeline(vis_traj, vis_tl, title=vis_title),
-        f"{args.preset}_visibility_timeline.png",
+        FIG_VISIBILITY_TIMELINE,
     )
 
     for pol in (NavPolicy.XNAV_ONLY, NavPolicy.GNSS_ONLY, NavPolicy.HYBRID):
         _save(
             plot_orbit_colored_by_policy(vis_traj, vis_tl, pol),
-            f"{args.preset}_orbit_{pol.value}.png",
+            FIG_ORBIT_POLICY.format(policy=pol.value),
         )
         _save(
             plot_policy_segment_timeline(vis_tl, pol),
-            f"{args.preset}_segments_{pol.value}.png",
+            FIG_SEGMENTS_POLICY.format(policy=pol.value),
         )
 
     _save(
         plot_orbit_colored_by_blackout(
-            vis_traj, vis_tl, title=f"{args.preset.upper()} - GNSS blackout (3D)"
+            vis_traj, vis_tl, title="Orbit by blackout"
         ),
-        f"{args.preset}_orbit_blackout_3d.png",
+        FIG_ORBIT_BLACKOUT_3D,
     )
     _save(
         plot_orbit_blackout_xy(vis_traj, vis_tl),
-        f"{args.preset}_orbit_blackout_xy.png",
+        FIG_ORBIT_BLACKOUT_XY,
     )
     fig_prop = plot_propagated_trajectory(
         vis_traj,
         preset=args.preset,
-        title=f"{args.preset.upper()} truth orbit ({args.visibility_hr:.0f} hr)",
+        title="Truth orbit",
     )
-    save_propagation_figure(fig_prop, common_dir / f"{args.preset}_truth_propagation.png", dpi=200)
-    saved.append(f"{args.preset}_truth_propagation.png")
-    print(f"  saved {args.preset}_truth_propagation.png")
+    save_propagation_figure(fig_prop, common_dir / FIG_TRUTH_ORBIT, dpi=200)
+    saved.append(FIG_TRUTH_ORBIT)
+    print(f"  saved {FIG_TRUTH_ORBIT}")
 
     orbit_md = ""
     if args.preset == "elfo":
@@ -367,29 +383,29 @@ def build_nav_pipeline(
             run,
             mc_tl,
             policy=policy,
-            title=f"{policy_display_name(policy)} - position error",
+            title=f"{policy_display_name(policy)} position error",
         )
-        fname = f"mc_{args.preset}_{policy.value}_propagation.png"
+        fname = FIG_ERRORS_POLICY.format(policy=policy.value)
         save_figure(fig, nav_dir / fname)
         saved.append(fname)
 
         if policy in (NavPolicy.HYBRID, NavPolicy.GNSS_ONLY):
             fig_clk = plot_clock_timing_trace(
                 run,
-                title=f"{policy_display_name(policy)} - clock timing error",
+                title=f"{policy_display_name(policy)} clock error",
             )
             if fig_clk is not None:
-                clk_fname = f"mc_{args.preset}_{policy.value}_clock_timing.png"
+                clk_fname = FIG_CLOCK_POLICY.format(policy=policy.value)
                 save_figure(fig_clk, nav_dir / clk_fname)
                 saved.append(clk_fname)
 
     fig_cmp = plot_all_policies_propagation(
         rep_runs,
         mc_tl,
-        title="Policy comparison - position error",
+        title="All policies",
     )
-    save_figure(fig_cmp, nav_dir / f"mc_{args.preset}_all_policies_propagation.png")
-    saved.append(f"mc_{args.preset}_all_policies_propagation.png")
+    save_figure(fig_cmp, nav_dir / FIG_ERRORS_ALL)
+    saved.append(FIG_ERRORS_ALL)
 
     if n_env > 0:
         print(f"Monte Carlo envelopes ({n_env} trials)...")
@@ -400,20 +416,20 @@ def build_nav_pipeline(
             fig = plot_policy_error_envelope(
                 env,
                 mc_tl,
-                title=f"{policy_display_name(policy)} - Monte Carlo mean",
+                title=f"{policy_display_name(policy)} envelope",
             )
-            fname = f"mc_{args.preset}_{policy.value}_envelope.png"
+            fname = FIG_ENVELOPE_POLICY.format(policy=policy.value)
             save_figure(fig, nav_dir / fname)
             saved.append(fname)
         save_figure(
             plot_all_policies_envelope(
                 envelopes,
                 mc_tl,
-                title="Monte Carlo mean - all policies",
+                title="Envelopes (all policies)",
             ),
-            nav_dir / f"mc_{args.preset}_all_policies_envelope.png",
+            nav_dir / FIG_ENVELOPE_ALL,
         )
-        saved.append(f"mc_{args.preset}_all_policies_envelope.png")
+        saved.append(FIG_ENVELOPE_ALL)
 
     md_parts = [
         f"# Presentation - {pipeline.label}",
@@ -434,9 +450,9 @@ def build_nav_pipeline(
     md_parts.append(_summary_markdown(result, preset=args.preset, pipeline=pipeline))
 
     for plot_fn, fname in [
-        (lambda: plot_final_error_boxplot(result, title="Final position error"), f"mc_{args.preset}_boxplot.png"),
-        (lambda: plot_policy_metrics_bars(result), f"mc_{args.preset}_policy_bars.png"),
-        (lambda: plot_final_error_cdf(result), f"mc_{args.preset}_final_cdf.png"),
+        (lambda: plot_final_error_boxplot(result, title="Final position error"), FIG_FINAL_BOXPLOT),
+        (lambda: plot_policy_metrics_bars(result), FIG_POLICY_BARS),
+        (lambda: plot_final_error_cdf(result), FIG_FINAL_CDF),
     ]:
         save_figure(plot_fn(), nav_dir / fname)
         saved.append(fname)
@@ -453,9 +469,9 @@ def build_nav_pipeline(
         export_bundle.pulsar_sweep = pulsar_sweep
         save_figure(
             plot_pulsar_sweep_comparison(pulsar_sweep),
-            nav_dir / f"mc_{args.preset}_pulsar_sweep.png",
+            nav_dir / FIG_PULSAR_SWEEP,
         )
-        saved.append(f"mc_{args.preset}_pulsar_sweep.png")
+        saved.append(FIG_PULSAR_SWEEP)
 
         print("TOA noise sweep...")
         toa_sweep = run_toa_noise_sweep(
@@ -465,9 +481,9 @@ def build_nav_pipeline(
         export_bundle.toa_sweep = toa_sweep
         save_figure(
             plot_toa_noise_sweep(toa_sweep),
-            nav_dir / f"mc_{args.preset}_toa_sweep.png",
+            nav_dir / FIG_TOA_SWEEP,
         )
-        saved.append(f"mc_{args.preset}_toa_sweep.png")
+        saved.append(FIG_TOA_SWEEP)
 
     tables_out = tables_dir / pipeline.slug
     table_files = export_presentation_tables(
@@ -561,7 +577,7 @@ def main() -> None:
         predict_row_labels = {
             PredictMode.TRUTH_VELOCITY: "Truth velocity between updates",
             PredictMode.CV: "Filter CV predict only",
-            PredictMode.DYNAMICS: "Filter dynamics (RK45 + STM, HW2 Q)",
+            PredictMode.DYNAMICS: "Filter dynamics (RK45 + STM)",
         }
 
         for pipeline in pipelines_to_run:

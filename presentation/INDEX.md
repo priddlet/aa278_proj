@@ -1,6 +1,6 @@
 # Presentation assets
 
-**Primary campaign:** `filter_dynamics` (EKF RK45+STM + HW2 process noise)
+**Primary campaign:** `filter_dynamics` (EKF RK45+STM + process noise)
 
 Regenerate: `python scripts/build_presentation_assets.py --pipelines filter_dynamics`
 
@@ -8,9 +8,9 @@ Regenerate: `python scripts/build_presentation_assets.py --pipelines filter_dyna
 
 | Item | Value |
 |------|--------|
-| **Truth orbit** | HW2 ELFO case 1: a = 6541.4 km, e = 0.6, **T approx 13.2 h** (not LCRNS 30 h) |
-| **Truth dynamics** | Moon + Earth + Sun indirect (HW2 P2), SPICE DE440 |
-| **EKF predict** | MCI RK45 + analytic STM; HW2 CWNA Q, `dynamics_sigma_acc_km = 1e-6` km/s^2/sqrt(s) |
+| **Truth orbit** | ELFO case 1: a = 6541.4 km, e = 0.6, **T approx 13.2 h** (not LCRNS 30 h) |
+| **Truth dynamics** | Moon + Earth + Sun indirect, SPICE DE440 |
+| **EKF predict** | MCI RK45 + analytic STM; CWNA Q, `dynamics_sigma_acc_km = 1e-6` km/s^2/sqrt(s) |
 | **Measurements** | Synthetic from **truth position** + noise (optimistic sensing) |
 | **XNAV** | All 5 SEXTANT MSPs, sigma_TOA = **1 us** (~300 m range sigma), linear `n_hat dot r` |
 | **GNSS / LunaNet** | Sidelobe PRNs, sigma = 15 m; LunaNet supplemental in blackout when relay visible |
@@ -23,7 +23,7 @@ Regenerate: `python scripts/build_presentation_assets.py --pipelines filter_dyna
 
 ## Geometry & truth (ELFO)
 
-Orbit: HW2 ELFO (a=6541 km, e=0.6, Tapprox13.2 h; rpapprox2617 km, raapprox10466 km)
+Orbit: ELFO (a=6541 km, e=0.6, Tapprox13.2 h; rpapprox2617 km, raapprox10466 km)
 
 Use **one-orbit blackout (~65.7%)** for per-revolution geometry; **MC arc (26.4 h, ~64.1%)** for navigation statistics.
 
@@ -31,16 +31,16 @@ Use **one-orbit blackout (~65.7%)** for per-revolution geometry; **MC arc (26.4 
 
 | File | Description |
 |------|-------------|
-| `figures/presentation/common/elfo_blackout_fraction_specs.png` | Blackout % - one orbit (T approx 13.2 h) vs 30 h sim vs MC arc |
-| `figures/presentation/common/elfo_orbit_blackout_3d_one_orbit.png` | Orbit colored by blackout - one revolution |
-| `figures/presentation/common/elfo_orbit_blackout_3d.png` | Orbit colored by blackout - 30 h visibility arc |
-| `figures/presentation/common/elfo_orbit_blackout_xy.png` | Blackout map (Moon xy) |
-| `figures/presentation/common/elfo_truth_propagation.png` | Truth trajectory (30 h arc) |
-| `figures/presentation/common/elfo_visibility_one_orbit.png` | Visibility timeline - one orbit |
-| `figures/presentation/common/elfo_visibility_timeline.png` | Visibility timeline - 30 h (approx 2.3 rev) |
-| `figures/presentation/common/elfo_orbit_{policy}.png` | Orbit colored by planned policy phase |
-| `figures/presentation/common/elfo_segments_{policy}.png` | Policy segment timeline |
-| `figures/presentation/common/predict_mode_comparison_{policy}.png` | Predict-mode bar charts (hybrid / gnss_only / xnav_only) |
+| `figures/presentation/common/blackout_specs.png` | Blackout fraction by arc |
+| `figures/presentation/common/orbit_blackout_3d_orbit.png` | Orbit by blackout (one orbit) |
+| `figures/presentation/common/orbit_blackout_3d.png` | Orbit by blackout |
+| `figures/presentation/common/orbit_blackout_xy.png` | Blackout map (xy) |
+| `figures/presentation/common/truth_orbit.png` | Truth orbit |
+| `figures/presentation/common/visibility_orbit.png` | Visibility (one orbit) |
+| `figures/presentation/common/visibility_timeline.png` | Visibility timeline |
+| `figures/presentation/common/orbit_{policy}.png` | Orbit by policy |
+| `figures/presentation/common/segments_{policy}.png` | Policy segments |
+| `figures/presentation/common/predict_{policy}.png` | Predict mode comparison |
 
 ### Tables - `presentation/tables/common/`
 
@@ -73,18 +73,17 @@ Per-mode detailed tables exist only under **`filter_dynamics/`** (primary campai
 
 | File | Description |
 |------|-------------|
-| `figures/presentation/filter_dynamics/mc_elfo_all_policies_propagation.png` | Position error propagation - all policies |
-| `figures/presentation/filter_dynamics/mc_elfo_{policy}_propagation.png` | Position error propagation per policy |
-| `figures/presentation/filter_dynamics/mc_elfo_{policy}_envelope.png` | MC error envelope (mean +/- band) |
-| `figures/presentation/filter_dynamics/mc_elfo_all_policies_envelope.png` | MC envelope - all policies |
-| `figures/presentation/filter_dynamics/mc_elfo_hybrid_clock_timing.png` | Clock timing error trace (hybrid) |
-| `figures/presentation/filter_dynamics/mc_elfo_gnss_only_clock_timing.png` | Clock timing trace (gnss_only) |
-| `figures/presentation/filter_dynamics/mc_elfo_policy_bars.png` | Bar chart - final / blackout / steady metrics |
-| `figures/presentation/filter_dynamics/mc_elfo_boxplot.png` | Boxplot - final position error by policy |
-| `figures/presentation/filter_dynamics/mc_elfo_final_cdf.png` | CDF - final position error |
-| `figures/presentation/filter_dynamics/mc_elfo_pulsar_sweep.png` | Pulsar count sweep figure |
-| `figures/presentation/filter_dynamics/mc_elfo_toa_sweep.png` | TOA noise sweep figure |
-| `figures/presentation/filter_dynamics/mc_elfo_q_diagnostics.png` | Q diagnostics - median NIS/df vs sigma_acc |
+| `figures/presentation/filter_dynamics/errors_all.png` | Position error (all policies) |
+| `figures/presentation/filter_dynamics/errors_{policy}.png` | Position error |
+| `figures/presentation/filter_dynamics/envelope_{policy}.png` | Error envelope |
+| `figures/presentation/filter_dynamics/envelope_all.png` | Envelopes (all policies) |
+| `figures/presentation/filter_dynamics/clock_{policy}.png` | Clock error |
+| `figures/presentation/filter_dynamics/policy_bars.png` | Mean error by segment |
+| `figures/presentation/filter_dynamics/final_boxplot.png` | Final error boxplot |
+| `figures/presentation/filter_dynamics/final_cdf.png` | Final error CDF |
+| `figures/presentation/filter_dynamics/pulsar_sweep.png` | Pulsar count sweep |
+| `figures/presentation/filter_dynamics/toa_sweep.png` | TOA noise sweep |
+| `figures/presentation/filter_dynamics/q_diagnostics.png` | Process noise diagnostics |
 
 ### Spreadsheet
 
@@ -98,7 +97,7 @@ Per-mode detailed tables exist only under **`filter_dynamics/`** (primary campai
 Other predict modes (`truth_velocity`, `filter_predict`) run in MC for comparison only - no separate figure/table trees.
 
 - `presentation/tables/common/predict_mode_comparison.md`
-- `figures/presentation/common/predict_mode_comparison_*.png`
+- `figures/presentation/common/predict_*.png`
 
 
 ---

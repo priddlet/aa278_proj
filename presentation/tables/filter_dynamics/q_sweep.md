@@ -1,4 +1,4 @@
-## Q diagnostics - HW2 sigma_acc sweep
+## Q diagnostics - sigma_acc sweep
 
 **Trials:** 10 | **Predict:** filter dynamics (RK45+STM)
 

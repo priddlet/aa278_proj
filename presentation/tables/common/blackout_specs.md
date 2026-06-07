@@ -1,6 +1,6 @@
 ## Blackout specifications - ELFO
 
-HW2 ELFO (a=6541 km, e=0.6, Tapprox13.2 h; rpapprox2617 km, raapprox10466 km)
+ELFO (a=6541 km, e=0.6, Tapprox13.2 h; rpapprox2617 km, raapprox10466 km)
 
 _GNSS blackout: Earth below 5 deg elevation mask (geometric far-side bound)._
 

@@ -1,8 +1,8 @@
 ## Monte Carlo - ELFO (Filter dynamics predict)
 
-EKF predict: **Filter dynamics predict** | Arc: **26.4 hr** | Trials: **20** | TOA sigma: **1.0 us** | pulsars: **all (5)**
+EKF predict: **Filter dynamics predict**  |  Arc: **26.4 hr**  |  Trials: **20**  |  TOA sigma: **1.0 us**  |  pulsars: **all (5)**
 
-_EKF RK45+STM predict (HW2 Tier A); sigma_acc km/s^2/sqrt(s) process noise._
+_EKF RK45+STM predict; sigma_acc km/s^2/sqrt(s) process noise._
 
 Blackout fraction: **64.1%**
 

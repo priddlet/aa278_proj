@@ -113,4 +113,3 @@ src/pulsar_nav/
 - Sheikh & Pines (2006), *Spacecraft Navigation Using X-Ray Pulsars*
 - [NICER/SEXTANT](https://heasarc.gsfc.nasa.gov/docs/nicer/) on-orbit demonstration
 - Chen et al. (2025) pulsar selection / TOA noise
-- Pitch: `AA 278 Pitch.pdf`

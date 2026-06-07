@@ -31,7 +31,7 @@ def elfo_orbit_summary(*, eccentricity: float = 0.6) -> str:
     rp, ra = elfo_apsides_km(eccentricity=eccentricity)
     t_hr = elfo_orbital_period_s() / 3600.0
     return (
-        f"HW2 ELFO (a={ELFO_SMA_KM:.0f} km, e={eccentricity:.1f}, "
+        f"ELFO (a={ELFO_SMA_KM:.0f} km, e={eccentricity:.1f}, "
         f"Tapprox{t_hr:.1f} h; rpapprox{rp:.0f} km, raapprox{ra:.0f} km)"
     )
 
